@@ -7,6 +7,8 @@ A credible demo that architects and engineers will actually try: bring their own
 Plan + Section views, fans, heaters, room heat gain, metrics + score, A/B tests, presets, export/import, light/dark theme.
 Rewritten as a Next.js (App Router, TypeScript) static site with vitest tests for the solver and layout codes.
 
+> Direction and audience research: see `docs/ROADMAPS.md`. Short-term tasks: `docs/TODO.md`.
+
 ## Next (in order)
 0. **Hardening and CI:** GitHub Actions running typecheck, tests and build; UI smoke test (Playwright); speed up the solver suite.
    Done when: every push is checked and a failing change cannot be merged.
