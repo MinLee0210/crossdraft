@@ -3,6 +3,8 @@
 Draw a floor plan or a section, choose the wind, press Start, and watch air move through the rooms.
 A static Next.js (App Router, TypeScript) site with no backend. Indicative 2D airflow, **not CFD**.
 
+![Crossdraft showing wind flowing through a drawn room in Plan view](docs/assets/crossdraft-main.png)
+
 ## Features
 - Plan view (top-down) and Section view (side view with gravity and buoyancy)
 - Tools: wall, line, room, block, opening, fan, heater, erase. Undo and redo.

@@ -3,7 +3,7 @@
 Next steps, in order. Longer-term direction is in `docs/ROADMAPS.md`; shipped work and decisions are in `docs/PLAN.md`.
 
 ## Do next (small, high value for students)
-- [ ] Add 3 local example layouts (tube house with light well, one-sided apartment, courtyard house) to `lib/presets.ts`, each with a short "what to notice" line shown under the picker.
+- [x] Add 3 local example layouts (tube house with light well, one-sided apartment, courtyard house) to `lib/presets.ts`, each with a short "what to notice" line shown under the picker. (Plan only; a Section version of the tube house is still open.)
 - [ ] Plain-language insight box under Rooms ("R2 stays stale: only one opening"). Derive from `roomStats` and `sim.labels`.
 - [ ] Share link: store the layout code in the URL hash (`serialize` / `deserialize` already exist), load it on startup, add a "Copy link" button.
 - [ ] Wind presets by season and city (start with a hard-coded list for Vietnam: NE winter monsoon, S/SE summer breeze). Mark clearly as typical, not site data.

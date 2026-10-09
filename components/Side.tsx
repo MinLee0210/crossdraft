@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { Engine, TestResult, UiState } from '@/lib/engine';
 import { beaufort, compass, fmt, pct } from '@/lib/format';
 import { PRESETS } from '@/lib/presets';
@@ -194,15 +194,17 @@ const CELLS = [0.1, 0.125, 0.2, 0.25, 0.5];
 const GRID_LABEL: Record<GridKey, string> = { s: '80 x 54 (fast)', m: '120 x 80', l: '160 x 106 (slow)' };
 
 function Layouts({ engine, ui }: Props) {
-  const presets = PRESETS[ui.mode], sel = useRef<HTMLSelectElement>(null);
+  const presets = PRESETS[ui.mode];
+  const [picked, setPicked] = useState('');
+  const current = presets.find((p) => p.id === picked) ?? presets[0];
   const cells = CELLS.includes(ui.cellSize) ? CELLS : [...CELLS, ui.cellSize].sort((a, b) => a - b);
   return (
     <section className="blk">
       <h2>Layouts</h2>
       <div className="row2">
         <label className="fld"><span>Example</span>
-          <select ref={sel} key={ui.mode}>{presets.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-        <div className="fld"><span>&nbsp;</span><button type="button" className="btn sm" onClick={() => engine.loadPreset(sel.current!.value)}>Load example</button></div>
+          <select value={current.id} onChange={(e) => setPicked(e.target.value)}>{presets.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <div className="fld"><span>&nbsp;</span><button type="button" className="btn sm" onClick={() => engine.loadPreset(current.id)}>Load example</button></div>
         <label className="fld"><span>Grid</span>
           <select value={ui.grid ?? ''} onChange={(e) => engine.setGrid(e.target.value as GridKey)}>
             {ui.grid === null && <option value="">{ui.W} x {ui.H}</option>}
@@ -211,6 +213,7 @@ function Layouts({ engine, ui }: Props) {
         <label className="fld"><span>Cell size</span>
           <select value={ui.cellSize} onChange={(e) => engine.setCellSize(+e.target.value)}>{cells.map((c) => <option key={c} value={c}>{c.toFixed(c === 0.125 ? 3 : 2)} m</option>)}</select></label>
       </div>
+      <p className="note"><b>What to notice:</b> {current.note}</p>
       <p className="hint">
         Domain {fmt(ui.W * ui.cellSize, 1)} x {fmt(ui.H * ui.cellSize, 1)} m.{' '}
         {ui.mode === 'section' ? 'Section: the ground and the lid are closed to flow, west and east are open, gravity points down.' : 'Plan: all four edges are open to the outside.'}
