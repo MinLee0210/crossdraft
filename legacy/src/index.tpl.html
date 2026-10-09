@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crossdraft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: a drafting desk. Wide stage with the plan on the left, a narrow rail of
+   instruments (wind, rooms, tests) on the right. One accent (air cyan), one warm signal (heat). */
+:root{
+  --bg:#edf0f3; --panel:#f8f9fb; --stage:#e3e8ec; --ink:#16202a; --muted:#5a6775;
+  --line:#d0d8df; --line2:#e2e7ec; --accent:#0b8aa6; --accent-ink:#ffffff; --accent-soft:#d3eef4;
+  --heat:#e0502a; --wall:#18232e; --glass:#33b6d4; --hatch:#d9822b; --grid:rgba(24,35,46,.10);
+  --good:#1b7f4b; --bad:#c23a3a; --warn:#a96d08;
+  --sans:'Schibsted Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1418; --panel:#151d23; --stage:#0b1014; --ink:#e4ebf0; --muted:#8a99a6;
+    --line:#26323b; --line2:#1d272e; --accent:#3cc4de; --accent-ink:#06222a; --accent-soft:#12303a;
+    --heat:#ff7d4f; --wall:#a9b8c5; --glass:#3cc4de; --hatch:#f0a04b; --grid:rgba(214,224,232,.09);
+    --good:#46c283; --bad:#ff6b6b; --warn:#e0a53a; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1418; --panel:#151d23; --stage:#0b1014; --ink:#e4ebf0; --muted:#8a99a6;
+  --line:#26323b; --line2:#1d272e; --accent:#3cc4de; --accent-ink:#06222a; --accent-soft:#12303a;
+  --heat:#ff7d4f; --wall:#a9b8c5; --glass:#3cc4de; --hatch:#f0a04b; --grid:rgba(214,224,232,.09);
+  --good:#46c283; --bad:#ff6b6b; --warn:#e0a53a; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans);padding-inline:16px;padding-block:14px 28px;-webkit-text-size-adjust:100%}
+h1,h2,p{margin:0}
+button,select,input,textarea{font:inherit;color:inherit}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.app{max-width:1360px;margin-inline:auto}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:30px;height:30px;flex:none;fill:none;stroke:var(--accent);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.brand h1{font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.brand span{display:block;font-size:12px;color:var(--muted)}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line);background:var(--panel);border-radius:6px;font-weight:500;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);min-width:84px}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.icon{width:32px;padding:0;font-size:16px}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:2px;gap:2px;max-width:100%;flex-wrap:wrap}
+.seg button{border:0;background:transparent;border-radius:6px;padding:5px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button small{font-weight:400;font-size:11px}
+.seg button[aria-checked="true"],.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+.seg.sm button{flex-direction:row;padding:4px 10px;font-size:12px;font-weight:500}
+select,input[type=number]{height:30px;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:0 8px;font-size:13px;max-width:100%}
+input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+textarea{width:100%;min-height:84px;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:8px;font:12px/1.4 var(--mono);resize:vertical}
+
+/* layout */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.stage{min-width:0;display:flex;flex-direction:column;gap:10px}
+@media (min-width:1001px) and (min-height:640px){.stage{position:sticky;top:12px}}
+@media (max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}}
+
+.tools{display:flex;flex-wrap:wrap;gap:6px}
+.tool{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:62px;padding:7px 4px 5px;border:1px solid var(--line);background:var(--panel);border-radius:8px;cursor:pointer;font-size:11px;font-weight:500;color:var(--muted)}
+.tool svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tool kbd{position:absolute;top:3px;right:5px;font:10px var(--mono);opacity:.55}
+.tool:hover{border-color:var(--muted);color:var(--ink)}
+.tool[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.tool[aria-pressed="true"] svg{stroke:var(--accent)}
+.tool:disabled{opacity:.4;cursor:not-allowed}
+@media (max-width:520px){.tool{width:calc(25% - 5px)}}
+
+.toolopts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;min-height:34px;font-size:12px;color:var(--muted)}
+.toolopts label{display:flex;align-items:center;gap:8px}
+.toolopts input[type=range]{width:120px}
+.pad{display:grid;grid-template-columns:repeat(3,26px);grid-auto-rows:26px;gap:2px}
+.pad button{border:1px solid var(--line);background:var(--panel);border-radius:5px;cursor:pointer;font-size:13px;padding:0;color:var(--muted)}
+.pad button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pad i{display:block}
+
+.runbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.runbar .sp{flex:1}
+.runbar label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.clock{font:500 13px var(--mono);min-width:92px;text-align:right;font-variant-numeric:tabular-nums}
+
+.canvaswrap{border:1px solid var(--line);border-radius:8px;background:var(--stage);overflow:hidden;line-height:0}
+#cv{display:block;touch-action:none;cursor:crosshair;max-width:100%;margin-inline:auto}
+.legendrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
+.legend{display:flex;align-items:center;gap:8px;font:12px var(--mono);color:var(--muted)}
+.legend canvas{width:180px;height:10px;border-radius:2px;border:1px solid var(--line)}
+.status{font:12px var(--mono);color:var(--muted);min-height:18px;overflow-wrap:anywhere}
+
+/* side rail */
+.side{display:flex;flex-direction:column;min-width:0}
+.blk{border-top:1px solid var(--line);padding-block:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.blk:first-child{border-top:0;padding-top:0}
+.blk h2{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.blk summary{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+details.blk{display:block}
+details.blk>:not(summary){margin-top:10px}
+.hint{font-size:12px;color:var(--muted)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.fld output{font:12px var(--mono);color:var(--ink)}
+.fld .top2{display:flex;justify-content:space-between;gap:8px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px}
+.chk input{accent-color:var(--accent)}
+
+.windrow{display:flex;gap:14px;align-items:center}
+#dial{width:118px;height:118px;flex:none;touch-action:none;cursor:grab}
+#dial circle.ring{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
+#dial .tick{stroke:var(--line);stroke-width:1.5}
+#dial text{font:600 10px var(--mono);fill:var(--muted);text-anchor:middle;dominant-baseline:middle}
+#dial .arrow{stroke:var(--accent);stroke-width:3;stroke-linecap:round;fill:none}
+#dial .head{fill:var(--accent)}
+#dial .knob{fill:var(--accent);stroke:var(--panel);stroke-width:2}
+.wctl{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.big{font-size:22px;font-weight:600;line-height:1.1}
+
+.score{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.score .num{font:600 44px/1 var(--mono);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.score .of{font:12px var(--mono);color:var(--muted)}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.chip.warn{color:var(--warn);border-color:var(--warn)}
+.chip.good{color:var(--good);border-color:var(--good)}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 12px}
+.kpi{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);border-bottom:1px dashed var(--line2);padding-bottom:3px}
+.kpi b{font:500 12px var(--mono);color:var(--ink)}
+.tablewrap{overflow-x:auto;max-width:100%}
+table.m{border-collapse:collapse;width:100%;font:12px var(--mono);font-variant-numeric:tabular-nums}
+table.m th{font:600 10px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:right;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.m th:first-child,table.m td:first-child{text-align:left}
+table.m td{text-align:right;padding:4px 6px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.good{color:var(--good)} .bad{color:var(--bad)}
+.bar{height:6px;border-radius:3px;background:var(--line2);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+.note{font-size:12px;color:var(--muted);line-height:1.4}
+.formula{font:11px/1.4 var(--mono);color:var(--muted)}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 30 30" aria-hidden="true"><path d="M3 10h14.5a3.8 3.8 0 1 0-3.8-3.8"/><path d="M3 16h20.5a3.8 3.8 0 1 1-3.8 3.8"/><path d="M3 22h9"/></svg>
+      <div><h1>Crossdraft</h1><span>Airflow sketchpad. Indicative 2D, not CFD.</span></div>
+    </div>
+    <div class="seg" id="modeSeg" role="radiogroup" aria-label="View">
+      <button type="button" role="radio" data-mode="plan" aria-checked="true"><span>Plan</span><small>top-down, wind only</small></button>
+      <button type="button" role="radio" data-mode="section" aria-checked="false"><span>Section</span><small>side view, heat rises</small></button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="Drawing and simulation">
+      <div class="tools" id="tools" role="toolbar" aria-label="Drawing tools"></div>
+      <div class="toolopts" id="toolopts"></div>
+      <div class="runbar">
+        <button type="button" class="btn primary" id="runBtn">Pause</button>
+        <button type="button" class="btn" id="resetBtn" title="Restart the air and keep the layout">Reset flow</button>
+        <button type="button" class="btn" id="clearBtn">Clear</button>
+        <button type="button" class="btn icon" id="undoBtn" aria-label="Undo" title="Undo (Z)">&#8630;</button>
+        <button type="button" class="btn icon" id="redoBtn" aria-label="Redo" title="Redo (Y)">&#8631;</button>
+        <span class="sp"></span>
+        <label>Speed <select id="speedSel" aria-label="Simulation speed"><option value="1">x1</option><option value="2">x2</option><option value="3" selected>x3</option><option value="6">x6</option><option value="12">x12</option></select></label>
+        <span class="clock" id="clock">t = 0.0 s</span>
+      </div>
+      <div class="canvaswrap" id="wrap"><canvas id="cv" role="img" aria-label="Floor plan with simulated airflow"></canvas></div>
+      <div class="legendrow">
+        <div class="seg sm" id="viewSeg" role="radiogroup" aria-label="Field shown"></div>
+        <div class="legend"><span id="lgMin">0</span><canvas id="lgCv" width="180" height="10"></canvas><span id="lgMax"></span></div>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <aside class="side" aria-label="Instruments">
+      <section class="blk" id="windBlk">
+        <h2>Wind</h2>
+        <div class="windrow">
+          <svg id="dial" viewBox="0 0 120 120" role="img" aria-label="Wind direction dial. Drag to set.">
+            <circle class="ring" cx="60" cy="60" r="52"/>
+            <path class="tick" d="M60 8v8M60 104v8M8 60h8M104 60h8"/>
+            <text x="60" y="26">N</text><text x="96" y="61">E</text><text x="60" y="95">S</text><text x="24" y="61">W</text>
+            <g id="dialArrow"><path class="arrow" d="M60 60H92"/><path class="head" d="M100 60l-10-6v12z"/><circle class="knob" cx="60" cy="60" r="4"/></g>
+          </svg>
+          <div class="wctl">
+            <div class="big mono" id="windFrom">W 270&deg;</div>
+            <div class="muted" id="windTo"></div>
+            <div class="muted" id="beaufort"></div>
+          </div>
+        </div>
+        <label class="fld"><span class="top2"><span>Direction the wind comes from</span><output id="degOut"></output></span><input id="degRange" type="range" min="0" max="359" step="1"></label>
+        <label class="fld"><span class="top2"><span>Speed</span><output id="spdOut"></output></span><input id="spdRange" type="range" min="0" max="12" step="0.1"></label>
+        <p class="hint" id="windHint"></p>
+      </section>
+
+      <section class="blk" id="viewBlk">
+        <h2>Overlays</h2>
+        <div class="row2">
+          <label class="chk"><input type="checkbox" id="chkPart" checked> Flow streaks</label>
+          <label class="chk"><input type="checkbox" id="chkArr"> Velocity arrows</label>
+          <label class="chk"><input type="checkbox" id="chkDead" checked> Dead zones</label>
+          <label class="chk"><input type="checkbox" id="chkLab" checked> Room labels</label>
+        </div>
+        <label class="fld"><span class="top2"><span>Still-air threshold</span><output id="thrOut"></output></span><input id="thrRange" type="range" min="0.02" max="0.5" step="0.01" value="0.1"></label>
+      </section>
+
+      <section class="blk" id="roomsBlk">
+        <h2>Rooms</h2>
+        <div class="score"><span class="num" id="scoreNum">--</span><span class="of">/ 100</span><span class="chip" id="scoreChip">warming up</span></div>
+        <div class="bar" aria-hidden="true"><i id="scoreBar"></i></div>
+        <div class="kpis">
+          <div class="kpi"><span>Stale air flushed</span><b id="kFlush">--</b></div>
+          <div class="kpi"><span>Dead-zone area</span><b id="kDead">--</b></div>
+          <div class="kpi"><span>Draft comfort</span><b id="kComf">--</b></div>
+          <div class="kpi"><span>Mean air age</span><b id="kAge">--</b></div>
+        </div>
+        <div class="tablewrap"><table class="m" id="roomTbl"><thead><tr><th>Room</th><th>m&sup2;</th><th>m/s</th><th>Dead</th><th>Fresh</th><th>+K</th><th>T90</th></tr></thead><tbody></tbody></table></div>
+        <p class="note" id="roomNote"></p>
+        <p class="formula">score = 50 x flushed + 30 x (1 - dead zone) + 20 x comfort. Comfort is 100% up to 0.3 m/s and falls to 0 at 1.5 m/s. T90 is the time for a room to reach 90% fresh air.</p>
+      </section>
+
+      <section class="blk" id="cmpBlk">
+        <h2>Compare layouts (A/B)</h2>
+        <p class="hint">Runs a fresh test from stale air at the current wind and stores the result. Change the design, test again into B.</p>
+        <div class="row2">
+          <label class="fld"><span>Test length</span><select id="testSel"><option value="60">60 s</option><option value="120" selected>120 s</option><option value="180">180 s</option><option value="300">300 s</option></select></label>
+          <div class="fld"><span>&nbsp;</span><div class="btnrow"><button type="button" class="btn sm" id="testA">Test &rarr; A</button><button type="button" class="btn sm" id="testB">Test &rarr; B</button></div></div>
+        </div>
+        <div id="testProg" hidden><div class="bar"><i id="testBar"></i></div><div class="btnrow" style="margin-top:6px;align-items:center"><span class="note" id="testTxt"></span><button type="button" class="btn sm" id="testCancel">Cancel</button></div></div>
+        <p class="note" id="cmpMsg"></p>
+        <div class="tablewrap"><table class="m" id="cmpTbl"></table></div>
+        <div class="btnrow"><button type="button" class="btn sm" id="loadA" disabled>Load A</button><button type="button" class="btn sm" id="loadB" disabled>Load B</button></div>
+      </section>
+
+      <section class="blk" id="layBlk">
+        <h2>Layouts</h2>
+        <div class="row2">
+          <label class="fld"><span>Example</span><select id="presetSel"></select></label>
+          <div class="fld"><span>&nbsp;</span><button type="button" class="btn sm" id="presetBtn">Load example</button></div>
+          <label class="fld"><span>Grid</span><select id="gridSel"><option value="s">80 x 54 (fast)</option><option value="m" selected>120 x 80</option><option value="l">160 x 106 (slow)</option></select></label>
+          <label class="fld"><span>Cell size</span><select id="cellSel"><option value="0.1">0.10 m</option><option value="0.125">0.125 m</option><option value="0.2">0.20 m</option><option value="0.25">0.25 m</option><option value="0.5">0.50 m</option></select></label>
+        </div>
+        <p class="hint" id="gridHint"></p>
+      </section>
+
+      <details class="blk" id="physBlk">
+        <summary>Physics</summary>
+        <div class="row2">
+          <label class="fld"><span class="top2"><span>Turbulent mixing</span><output id="mixOut"></output></span><input id="mixRange" type="range" min="0" max="0.15" step="0.005"></label>
+          <label class="fld"><span class="top2"><span>Swirl boost</span><output id="swOut"></output></span><input id="swRange" type="range" min="0" max="2" step="0.05"></label>
+          <label class="fld"><span class="top2"><span>Fan speed</span><output id="fanOut"></output></span><input id="fanRange" type="range" min="0.5" max="8" step="0.1"></label>
+          <label class="fld"><span class="top2"><span>Heater excess</span><output id="heatOut"></output></span><input id="heatRange" type="range" min="5" max="40" step="1"></label>
+          <label class="fld"><span class="top2"><span>Room heat gain (Plan)</span><output id="gainOut"></output></span><input id="gainRange" type="range" min="0" max="80" step="1"></label>
+          <label class="fld"><span class="top2"><span>Ceiling height</span><output id="ceilOut"></output></span><input id="ceilRange" type="range" min="2.2" max="5" step="0.1"></label>
+        </div>
+        <p class="note">Incompressible Stam solver on a grid. Walls are one cell thick and leak-tight. Room heat gain stands for people, appliances and sun, and it warms every enclosed room in Plan view. Temperatures are rises above outdoor air. Real rooms have 3D turbulence, furniture and pressure fluctuations that this does not model, so use it to compare layouts, not to certify them.</p>
+      </details>
+
+      <details class="blk" id="codeBlk">
+        <summary>Save and load</summary>
+        <textarea id="codeBox" spellcheck="false" aria-label="Layout code" placeholder="Press Export to get a layout code, or paste one here and press Import."></textarea>
+        <div class="btnrow"><button type="button" class="btn sm" id="expBtn">Export</button><button type="button" class="btn sm" id="copyBtn">Copy</button><button type="button" class="btn sm" id="impBtn">Import</button></div>
+        <p class="note" id="codeMsg"></p>
+      </details>
+    </aside>
+  </div>
+</div>
+<script>
+/*__SIM__*/
+</script>
+<script>
+/*__APP__*/
+</script></body>
+</html>
