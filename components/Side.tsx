@@ -5,11 +5,14 @@ import type { Engine, TestResult, UiState } from '@/lib/engine';
 import { beaufort, compass, fmt, pct } from '@/lib/format';
 import { PRESETS } from '@/lib/presets';
 import { GRIDS, type GridKey } from '@/lib/tools';
+import { WIND_PRESETS } from '@/lib/winds';
+import { useT } from './I18n';
 
 interface Props { engine: Engine; ui: UiState }
 
 /* ------------------------------------------------------------------ wind */
 function Dial({ engine, ui }: Props) {
+  const t = useT();
   const svg = useRef<SVGSVGElement>(null);
   const down = useRef(false);
   const { speed, deg, ex, ey } = ui.wind;
@@ -23,7 +26,7 @@ function Dial({ engine, ui }: Props) {
   const r = Math.atan2(ey, ex);
   const ang = Math.abs(ex) + Math.abs(ey) > 1e-6 ? r : Math.atan2(Math.cos((deg * Math.PI) / 180), -Math.sin((deg * Math.PI) / 180));
   return (
-    <svg ref={svg} id="dial" viewBox="0 0 120 120" role="img" aria-label="Wind direction dial. Drag to set."
+    <svg ref={svg} id="dial" viewBox="0 0 120 120" role="img" aria-label={t('wind.dial')}
       style={{ cursor: down.current ? 'grabbing' : 'grab' }}
       onPointerDown={(e) => { down.current = true; try { svg.current!.setPointerCapture(e.pointerId); } catch { /* ignore */ } set(e); }}
       onPointerMove={(e) => { if (down.current) set(e); }}
@@ -39,70 +42,108 @@ function Dial({ engine, ui }: Props) {
 }
 
 function Wind({ engine, ui }: Props) {
+  const t = useT();
   const { speed, deg, ex } = ui.wind, sec = ui.mode === 'section';
+  const matched = WIND_PRESETS.find((p) => p.speed === speed && p.deg === deg)?.id ?? '';
   return (
     <section className="blk">
-      <h2>Wind</h2>
+      <h2>{t('wind.title')}</h2>
       <div className="windrow">
         <Dial engine={engine} ui={ui} />
         <div className="wctl">
           <div className="big mono">{compass(deg)} {Math.round(deg)}&deg;</div>
-          <div className="muted">{speed < 0.05 ? 'No wind' : 'blows toward ' + compass(deg + 180)}</div>
-          <div className="muted">{beaufort(speed) + (sec && Math.abs(ex) < 1e-3 ? ' (calm in section)' : '')}</div>
+          <div className="muted">{speed < 0.05 ? t('wind.none') : t('wind.blowsTo', { dir: compass(deg + 180) })}</div>
+          <div className="muted">{t(beaufort(speed)) + (sec && Math.abs(ex) < 1e-3 ? t('wind.calmSection') : '')}</div>
         </div>
       </div>
-      <label className="fld"><span className="top2"><span>Direction the wind comes from</span><output>{Math.round(deg)}°</output></span>
+      <label className="fld"><span>{t('wind.typical')}</span>
+        <select value={matched} onChange={(e) => { const p = WIND_PRESETS.find((q) => q.id === e.target.value); if (p) engine.setWind(p.speed, p.deg); }}>
+          <option value="" disabled>{t('wind.choose')}</option>
+          {WIND_PRESETS.map((p) => <option key={p.id} value={p.id}>{t('wind.' + p.id)}</option>)}
+        </select></label>
+      <label className="fld"><span className="top2"><span>{t('wind.dir')}</span><output>{Math.round(deg)}°</output></span>
         <input type="range" min={0} max={359} step={1} value={Math.round(deg)} onChange={(e) => engine.setWind(speed, +e.target.value)} /></label>
-      <label className="fld"><span className="top2"><span>Speed</span><output>{fmt(speed, 1)} m/s</output></span>
+      <label className="fld"><span className="top2"><span>{t('wind.speed')}</span><output>{fmt(speed, 1)} m/s</output></span>
         <input type="range" min={0} max={12} step={0.1} value={speed} onChange={(e) => engine.setWind(+e.target.value, deg)} /></label>
-      <p className="hint">{sec ? 'Section view uses only the west/east part of the wind. North and south mean calm, so heat does all the work.' : 'Drag the dial or use the sliders. The wind blows across the whole domain.'}</p>
+      <p className="hint">{sec ? t('wind.hintSection') : t('wind.hintPlan')}</p>
+      <p className="hint">{t('wind.typicalNote')}</p>
     </section>
   );
 }
 
 /* -------------------------------------------------------------- overlays */
 function Overlays({ engine, ui }: Props) {
+  const t = useT();
   const chk = (k: 'particles' | 'arrows' | 'dead' | 'labels', label: string) => (
     <label className="chk"><input type="checkbox" checked={ui[k]} onChange={(e) => engine.setOverlay(k, e.target.checked)} /> {label}</label>
   );
   return (
     <section className="blk">
-      <h2>Overlays</h2>
-      <div className="row2">{chk('particles', 'Flow streaks')}{chk('arrows', 'Velocity arrows')}{chk('dead', 'Dead zones')}{chk('labels', 'Room labels')}</div>
-      <label className="fld"><span className="top2"><span>Still-air threshold</span><output>{fmt(ui.deadThr, 2)} m/s</output></span>
+      <h2>{t('ov.title')}</h2>
+      <div className="row2">
+        {chk('particles', t('ov.streaks'))}{chk('arrows', t('ov.arrows'))}{chk('dead', t('ov.dead'))}{chk('labels', t('ov.labels'))}
+        <label className="chk"><input type="checkbox" checked={ui.phongThuy} onChange={(e) => engine.setPhongThuy(e.target.checked)} /> {t('ov.pt')}</label>
+      </div>
+      <label className="fld"><span className="top2"><span>{t('ov.thr')}</span><output>{fmt(ui.deadThr, 2)} m/s</output></span>
         <input type="range" min={0.02} max={0.5} step={0.01} value={ui.deadThr} onChange={(e) => engine.setDeadThr(+e.target.value)} /></label>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------ phong thuy */
+function PhongThuy({ ui }: Pick<Props, 'ui'>) {
+  const t = useT();
+  if (!ui.phongThuy) return null;
+  return (
+    <section className="blk">
+      <h2>{t('pt.title')}</h2>
+      <p className="note"><b>{t('pt.disclaimer')}</b></p>
+      {ui.alignments.length === 0 && <p className="note">{t('pt.none')}</p>}
+      {ui.alignments.map((a, i) => {
+        const room = ui.stats.find((r) => r.id === a.room)?.name ?? '';
+        return (
+          <div key={i} className="ptcard">
+            <p className="note"><b>{t('pt.found', { room, len: fmt(a.length, 1), speed: fmt(a.speed, 1) })}</b></p>
+            <p className="note">{t('pt.tradition')}</p>
+            <p className="note">{t('pt.physics')}</p>
+          </div>
+        );
+      })}
     </section>
   );
 }
 
 /* ----------------------------------------------------------------- rooms */
 function Rooms({ ui }: Pick<Props, 'ui'>) {
+  const t = useT();
   const sc = ui.score;
-  let chip = { text: 'no closed room', cls: 'chip' };
+  let chip = { text: t('chip.none'), cls: 'chip' };
   if (sc) {
-    if (ui.dirty) chip = { text: 'edited since reset', cls: 'chip warn' };
-    else if (ui.t < ui.testT) chip = { text: `settling ${fmt(ui.t, 0)}/${ui.testT} s`, cls: 'chip warn' };
-    else chip = { text: 'settled', cls: 'chip good' };
+    if (ui.dirty) chip = { text: t('chip.edited'), cls: 'chip warn' };
+    else if (ui.t < ui.testT) chip = { text: t('chip.settling', { t: fmt(ui.t, 0), T: ui.testT }), cls: 'chip warn' };
+    else chip = { text: t('chip.settled'), cls: 'chip good' };
   }
-  const note = !sc
-    ? 'Walls must form a closed loop. Cut doors and windows with the Opening tool, since openings count as part of the wall.'
-    : ui.dirty
-      ? 'You changed the layout or wind during this run, so the numbers mix old and new air. Press Reset flow, or run a test into A or B.'
-      : 'Numbers are for the current run. Use Test into A or B for a fixed-length comparison.';
+  const note = !sc ? t('rooms.noteNone') : ui.dirty ? t('rooms.noteDirty') : t('rooms.noteOk');
   return (
     <section className="blk">
-      <h2>Rooms</h2>
-      <div className="score"><span className="num">{sc ? sc.score : '--'}</span><span className="of">/ 100</span><span className={chip.cls}>{chip.text}</span></div>
+      <h2>{t('rooms.title')}</h2>
+      <div className="score"><span className="num">{sc ? sc.score : '--'}</span><span className="of">{t('rooms.of')}</span><span className={chip.cls}>{chip.text}</span></div>
       <div className="bar" aria-hidden="true"><i style={{ width: sc ? sc.score + '%' : 0 }} /></div>
       <div className="kpis">
-        <div className="kpi"><span>Stale air flushed</span><b>{sc ? pct(sc.flush) : '-'}</b></div>
-        <div className="kpi"><span>Dead-zone area</span><b>{sc ? pct(sc.dead) : '-'}</b></div>
-        <div className="kpi"><span>Draft comfort</span><b>{sc ? pct(sc.comfort) : '-'}</b></div>
-        <div className="kpi"><span>Mean air age</span><b>{sc ? fmt(sc.age, 0) + ' s' : '-'}</b></div>
+        <div className="kpi"><span>{t('kpi.flush')}</span><b>{sc ? pct(sc.flush) : '-'}</b></div>
+        <div className="kpi"><span>{t('kpi.dead')}</span><b>{sc ? pct(sc.dead) : '-'}</b></div>
+        <div className="kpi"><span>{t('kpi.comfort')}</span><b>{sc ? pct(sc.comfort) : '-'}</b></div>
+        <div className="kpi"><span>{t('kpi.age')}</span><b>{sc ? fmt(sc.age, 0) + ' s' : '-'}</b></div>
       </div>
+      {ui.insights.length > 0 && (
+        <div className="insights" aria-live="polite">
+          <h3>{t('insight.title')}</h3>
+          <ul>{ui.insights.map((i, k) => <li key={i.key + k} className={'ins-' + i.tone}>{t(i.key, i.vars)}</li>)}</ul>
+        </div>
+      )}
       <div className="tablewrap">
         <table className="m">
-          <thead><tr><th>Room</th><th>m&sup2;</th><th>m/s</th><th>Dead</th><th>Fresh</th><th>+K</th><th>T90</th></tr></thead>
+          <thead><tr><th>{t('tbl.room')}</th><th>m&sup2;</th><th>m/s</th><th>{t('tbl.dead')}</th><th>{t('tbl.fresh')}</th><th>+K</th><th>T90</th></tr></thead>
           <tbody>
             {sc && ui.stats.map((r) => (
               <tr key={r.id}><td>{r.name}</td><td>{fmt(r.area, 0)}</td><td>{fmt(r.speed, 2)}</td><td>{pct(r.dead)}</td><td>{pct(r.fresh)}</td><td>{fmt(r.temp, 1)}</td><td>{r.t90 === null ? '-' : fmt(r.t90, 0) + ' s'}</td></tr>
@@ -111,7 +152,7 @@ function Rooms({ ui }: Pick<Props, 'ui'>) {
         </table>
       </div>
       <p className="note">{note}</p>
-      <p className="formula">score = 50 x flushed + 30 x (1 - dead zone) + 20 x comfort. Comfort is 100% up to 0.3 m/s and falls to 0 at 1.5 m/s. T90 is the time for a room to reach 90% fresh air.</p>
+      <p className="formula">{t('rooms.formula')}</p>
     </section>
   );
 }
@@ -119,25 +160,26 @@ function Rooms({ ui }: Pick<Props, 'ui'>) {
 /* --------------------------------------------------------------- compare */
 interface Metric { label: string; get: (r: TestResult) => number; show: (v: number) => string; good: 1 | -1 | 0; kind: 'pct' | 'score' | 'speed' | 'secs' | 't90' }
 const METRICS: Metric[] = [
-  { label: 'Score', get: (r) => r.sc!.score, show: (v) => fmt(v, 0), good: 1, kind: 'score' },
-  { label: 'Stale air flushed', get: (r) => r.sc!.flush, show: pct, good: 1, kind: 'pct' },
-  { label: 'Dead-zone area', get: (r) => r.sc!.dead, show: pct, good: -1, kind: 'pct' },
-  { label: 'Draft comfort', get: (r) => r.sc!.comfort, show: pct, good: 1, kind: 'pct' },
-  { label: 'Mean air speed', get: (r) => r.sc!.speed, show: (v) => fmt(v, 2) + ' m/s', good: 0, kind: 'speed' },
-  { label: 'Mean air age', get: (r) => r.sc!.age, show: (v) => fmt(v, 0) + ' s', good: -1, kind: 'secs' },
-  { label: 'Slowest room to 90%', get: (r) => (r.sc!.worstT90 === null ? r.T * 1.0001 : r.sc!.worstT90), show: (v) => fmt(v, 0) + ' s', good: -1, kind: 't90' }
+  { label: 'cmp.score', get: (r) => r.sc!.score, show: (v) => fmt(v, 0), good: 1, kind: 'score' },
+  { label: 'cmp.flush', get: (r) => r.sc!.flush, show: pct, good: 1, kind: 'pct' },
+  { label: 'cmp.dead', get: (r) => r.sc!.dead, show: pct, good: -1, kind: 'pct' },
+  { label: 'cmp.comfort', get: (r) => r.sc!.comfort, show: pct, good: 1, kind: 'pct' },
+  { label: 'cmp.speed', get: (r) => r.sc!.speed, show: (v) => fmt(v, 2) + ' m/s', good: 0, kind: 'speed' },
+  { label: 'cmp.age', get: (r) => r.sc!.age, show: (v) => fmt(v, 0) + ' s', good: -1, kind: 'secs' },
+  { label: 'cmp.t90', get: (r) => (r.sc!.worstT90 === null ? r.T * 1.0001 : r.sc!.worstT90), show: (v) => fmt(v, 0) + ' s', good: -1, kind: 't90' }
 ];
 
-function delta(m: Metric, A: TestResult, B: TestResult) {
+function delta(m: Metric, A: TestResult, B: TestResult, t: (k: string) => string) {
   if (m.kind === 't90' && A.sc!.worstT90 === null && B.sc!.worstT90 === null) return <span className="muted">-</span>;
   const dv = m.get(B) - m.get(A);
-  if (Math.abs(dv) < 1e-9) return <span className="muted">same</span>;
-  const txt = (dv > 0 ? '+' : '') + (m.kind === 'pct' ? Math.round(dv * 100) + ' pts' : m.kind === 'score' ? fmt(dv, 0) : m.kind === 'speed' ? fmt(dv, 2) : fmt(dv, 0) + ' s');
+  if (Math.abs(dv) < 1e-9) return <span className="muted">{t('cmp.same')}</span>;
+  const txt = (dv > 0 ? '+' : '') + (m.kind === 'pct' ? Math.round(dv * 100) + ' ' + t('cmp.pts') : m.kind === 'score' ? fmt(dv, 0) : m.kind === 'speed' ? fmt(dv, 2) : fmt(dv, 0) + ' s');
   const cls = m.good === 0 ? 'muted' : dv * m.good > 0 ? 'good' : 'bad';
   return <span className={cls}>{txt}</span>;
 }
 
 function Compare({ engine, ui }: Props) {
+  const t = useT();
   const { A, B } = ui.slots, testing = ui.test;
   const cell = (m: Metric, r: TestResult | null) => {
     if (!r || !r.sc) return '-';
@@ -147,23 +189,23 @@ function Compare({ engine, ui }: Props) {
   const wind = (r: TestResult | null) => (r ? `${fmt(r.wind.speed, 1)} m/s ${compass(r.wind.deg)}` : '-');
   return (
     <section className="blk">
-      <h2>Compare layouts (A/B)</h2>
-      <p className="hint">Runs a fresh test from stale air at the current wind and stores the result. Change the design, test again into B.</p>
+      <h2>{t('cmp.title')}</h2>
+      <p className="hint">{t('cmp.hint')}</p>
       <div className="row2">
-        <label className="fld"><span>Test length</span>
+        <label className="fld"><span>{t('cmp.length')}</span>
           <select value={ui.testT} onChange={(e) => engine.setTestT(+e.target.value)}>{[60, 120, 180, 300].map((v) => <option key={v} value={v}>{v} s</option>)}</select></label>
         <div className="fld"><span>&nbsp;</span>
           <div className="btnrow">
-            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('A')}>Test &rarr; A</button>
-            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('B')}>Test &rarr; B</button>
+            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('A')}>{t('cmp.testA')}</button>
+            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('B')}>{t('cmp.testB')}</button>
           </div></div>
       </div>
       {testing && (
         <div>
           <div className="bar"><i style={{ width: Math.min(100, (ui.t / testing.T) * 100).toFixed(1) + '%' }} /></div>
           <div className="btnrow" style={{ marginTop: 6, alignItems: 'center' }}>
-            <span className="note">Testing into {testing.slot}: {fmt(ui.t, 0)} of {testing.T} s</span>
-            <button type="button" className="btn sm" onClick={engine.cancelTest}>Cancel</button>
+            <span className="note">{t('cmp.testing', { slot: testing.slot, t: fmt(ui.t, 0), T: testing.T })}</span>
+            <button type="button" className="btn sm" onClick={engine.cancelTest}>{t('cmp.cancel')}</button>
           </div>
         </div>
       )}
@@ -171,19 +213,19 @@ function Compare({ engine, ui }: Props) {
       {(A || B) && (
         <div className="tablewrap">
           <table className="m">
-            <thead><tr><th></th><th>A</th><th>B</th><th>B vs A</th></tr></thead>
+            <thead><tr><th></th><th>A</th><th>B</th><th>{t('cmp.vs')}</th></tr></thead>
             <tbody>
               {METRICS.map((m) => (
-                <tr key={m.label}><td>{m.label}</td><td>{cell(m, A)}</td><td>{cell(m, B)}</td><td>{A?.sc && B?.sc ? delta(m, A, B) : null}</td></tr>
+                <tr key={m.label}><td>{t(m.label)}</td><td>{cell(m, A)}</td><td>{cell(m, B)}</td><td>{A?.sc && B?.sc ? delta(m, A, B, t) : null}</td></tr>
               ))}
-              <tr><td>Wind</td><td>{wind(A)}</td><td>{wind(B)}</td><td></td></tr>
+              <tr><td>{t('cmp.wind')}</td><td>{wind(A)}</td><td>{wind(B)}</td><td></td></tr>
             </tbody>
           </table>
         </div>
       )}
       <div className="btnrow">
-        <button type="button" className="btn sm" disabled={!A} onClick={() => engine.loadSlot('A')}>Load A</button>
-        <button type="button" className="btn sm" disabled={!B} onClick={() => engine.loadSlot('B')}>Load B</button>
+        <button type="button" className="btn sm" disabled={!A} onClick={() => engine.loadSlot('A')}>{t('cmp.loadA')}</button>
+        <button type="button" className="btn sm" disabled={!B} onClick={() => engine.loadSlot('B')}>{t('cmp.loadB')}</button>
       </div>
     </section>
   );
@@ -191,32 +233,31 @@ function Compare({ engine, ui }: Props) {
 
 /* --------------------------------------------------------------- layouts */
 const CELLS = [0.1, 0.125, 0.2, 0.25, 0.5];
-const GRID_LABEL: Record<GridKey, string> = { s: '80 x 54 (fast)', m: '120 x 80', l: '160 x 106 (slow)' };
-
 function Layouts({ engine, ui }: Props) {
+  const t = useT();
   const presets = PRESETS[ui.mode];
   const [picked, setPicked] = useState('');
   const current = presets.find((p) => p.id === picked) ?? presets[0];
   const cells = CELLS.includes(ui.cellSize) ? CELLS : [...CELLS, ui.cellSize].sort((a, b) => a - b);
   return (
     <section className="blk">
-      <h2>Layouts</h2>
+      <h2>{t('lay.title')}</h2>
       <div className="row2">
-        <label className="fld"><span>Example</span>
-          <select value={current.id} onChange={(e) => setPicked(e.target.value)}>{presets.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-        <div className="fld"><span>&nbsp;</span><button type="button" className="btn sm" onClick={() => engine.loadPreset(current.id)}>Load example</button></div>
-        <label className="fld"><span>Grid</span>
+        <label className="fld"><span>{t('lay.example')}</span>
+          <select value={current.id} onChange={(e) => setPicked(e.target.value)}>{presets.map((p) => <option key={p.id} value={p.id}>{t(`preset.${p.id}.name`)}</option>)}</select></label>
+        <div className="fld"><span>&nbsp;</span><button type="button" className="btn sm" onClick={() => engine.loadPreset(current.id)}>{t('lay.load')}</button></div>
+        <label className="fld"><span>{t('lay.grid')}</span>
           <select value={ui.grid ?? ''} onChange={(e) => engine.setGrid(e.target.value as GridKey)}>
             {ui.grid === null && <option value="">{ui.W} x {ui.H}</option>}
-            {(Object.keys(GRIDS) as GridKey[]).map((k) => <option key={k} value={k}>{GRID_LABEL[k]}</option>)}
+            {(Object.keys(GRIDS) as GridKey[]).map((k) => <option key={k} value={k}>{t('grid.' + k)}</option>)}
           </select></label>
-        <label className="fld"><span>Cell size</span>
+        <label className="fld"><span>{t('lay.cell')}</span>
           <select value={ui.cellSize} onChange={(e) => engine.setCellSize(+e.target.value)}>{cells.map((c) => <option key={c} value={c}>{c.toFixed(c === 0.125 ? 3 : 2)} m</option>)}</select></label>
       </div>
-      <p className="note"><b>What to notice:</b> {current.note}</p>
+      <p className="note"><b>{t('lay.notice')}</b> {t(`preset.${current.id}.note`)}</p>
       <p className="hint">
-        Domain {fmt(ui.W * ui.cellSize, 1)} x {fmt(ui.H * ui.cellSize, 1)} m.{' '}
-        {ui.mode === 'section' ? 'Section: the ground and the lid are closed to flow, west and east are open, gravity points down.' : 'Plan: all four edges are open to the outside.'}
+        {t('lay.domain', { w: fmt(ui.W * ui.cellSize, 1), h: fmt(ui.H * ui.cellSize, 1) })}{' '}
+        {ui.mode === 'section' ? t('lay.section') : t('lay.plan')}
       </p>
     </section>
   );
@@ -225,40 +266,42 @@ function Layouts({ engine, ui }: Props) {
 /* --------------------------------------------------------------- physics */
 type PhysKey = keyof UiState['phys'];
 const PHYS: { k: PhysKey; label: string; min: number; max: number; step: number; out: (v: number) => string }[] = [
-  { k: 'mixing', label: 'Turbulent mixing', min: 0, max: 0.15, step: 0.005, out: (v) => fmt(v, 3) + ' m²/s' },
-  { k: 'swirl', label: 'Swirl boost', min: 0, max: 2, step: 0.05, out: (v) => fmt(v, 2) },
-  { k: 'fanSpeed', label: 'Fan speed', min: 0.5, max: 8, step: 0.1, out: (v) => fmt(v, 1) + ' m/s' },
-  { k: 'heatDT', label: 'Heater excess', min: 5, max: 40, step: 1, out: (v) => '+' + v + ' K' },
-  { k: 'gain', label: 'Room heat gain (Plan)', min: 0, max: 80, step: 1, out: (v) => Math.round(v) + ' W/m²' },
-  { k: 'ceilH', label: 'Ceiling height', min: 2.2, max: 5, step: 0.1, out: (v) => fmt(v, 1) + ' m' }
+  { k: 'mixing', label: 'phys.mixing', min: 0, max: 0.15, step: 0.005, out: (v) => fmt(v, 3) + ' m²/s' },
+  { k: 'swirl', label: 'phys.swirl', min: 0, max: 2, step: 0.05, out: (v) => fmt(v, 2) },
+  { k: 'fanSpeed', label: 'phys.fanSpeed', min: 0.5, max: 8, step: 0.1, out: (v) => fmt(v, 1) + ' m/s' },
+  { k: 'heatDT', label: 'phys.heatDT', min: 5, max: 40, step: 1, out: (v) => '+' + v + ' K' },
+  { k: 'gain', label: 'phys.gain', min: 0, max: 80, step: 1, out: (v) => Math.round(v) + ' W/m²' },
+  { k: 'ceilH', label: 'phys.ceilH', min: 2.2, max: 5, step: 0.1, out: (v) => fmt(v, 1) + ' m' }
 ];
 
 function Physics({ engine, ui }: Props) {
+  const t = useT();
   return (
     <details className="blk">
-      <summary>Physics</summary>
+      <summary>{t('phys.title')}</summary>
       <div className="row2">
         {PHYS.map((p) => (
-          <label key={p.k} className="fld"><span className="top2"><span>{p.label}</span><output>{p.out(ui.phys[p.k])}</output></span>
+          <label key={p.k} className="fld"><span className="top2"><span>{t(p.label)}</span><output>{p.out(ui.phys[p.k])}</output></span>
             <input type="range" min={p.min} max={p.max} step={p.step} value={ui.phys[p.k]} onChange={(e) => engine.setPhys(p.k, +e.target.value)} /></label>
         ))}
       </div>
-      <p className="note">Incompressible Stam solver on a grid. Walls are one cell thick and leak-tight. Room heat gain stands for people, appliances and sun, and it warms every enclosed room in Plan view. Temperatures are rises above outdoor air. Real rooms have 3D turbulence, furniture and pressure fluctuations that this does not model, so use it to compare layouts, not to certify them.</p>
+      <p className="note">{t('phys.note')}</p>
     </details>
   );
 }
 
 /* ------------------------------------------------------------------ code */
 function Code({ engine, ui }: Props) {
+  const t = useT();
   return (
     <details className="blk">
-      <summary>Save and load</summary>
-      <textarea spellCheck={false} aria-label="Layout code" placeholder="Press Export to get a layout code, or paste one here and press Import."
+      <summary>{t('code.title')}</summary>
+      <textarea spellCheck={false} aria-label={t('code.label')} placeholder={t('code.placeholder')}
         value={ui.codeText} onChange={(e) => engine.setCodeText(e.target.value)} />
       <div className="btnrow">
-        <button type="button" className="btn sm" onClick={engine.exportCode}>Export</button>
-        <button type="button" className="btn sm" onClick={() => void engine.copyCode()}>Copy</button>
-        <button type="button" className="btn sm" onClick={engine.importCode}>Import</button>
+        <button type="button" className="btn sm" onClick={engine.exportCode}>{t('code.export')}</button>
+        <button type="button" className="btn sm" onClick={() => void engine.copyCode()}>{t('code.copy')}</button>
+        <button type="button" className="btn sm" onClick={engine.importCode}>{t('code.import')}</button>
       </div>
       <p className="note">{ui.codeMsg}</p>
     </details>
@@ -267,9 +310,10 @@ function Code({ engine, ui }: Props) {
 
 export function Side({ engine, ui }: Props) {
   return (
-    <aside className="side" aria-label="Instruments">
+    <aside className="side">
       <Wind engine={engine} ui={ui} />
       <Overlays engine={engine} ui={ui} />
+      <PhongThuy ui={ui} />
       <Rooms ui={ui} />
       <Compare engine={engine} ui={ui} />
       <Layouts engine={engine} ui={ui} />

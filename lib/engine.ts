@@ -1,5 +1,8 @@
 import { arrowOf, clamp, fmt, pct } from './format';
-import { decodeCell, deserialize, encodeCell, serialize, type Layout } from './layout';
+import { translate, type Lang } from './i18n';
+import { insights as makeInsights, type Insight } from './insights';
+import { decodeCell, deserialize, encodeCell, fromHash, serialize, toHash, type Layout } from './layout';
+import { detectAlignments, type Alignment } from './phongthuy';
 import { clampCell, inb, isShape, line4, put, shapeCells, stamp, type Pt, type Shape, type Tool } from './edit';
 import { PRESETS } from './presets';
 import { Sim, T_FAN, T_HEAT, T_OPEN, T_WALL, type Mode, type RoomStat, type Score } from './sim';
@@ -22,8 +25,9 @@ export interface UiState {
   stats: RoomStat[]; score: Score | null;
   test: { slot: 'A' | 'B'; T: number } | null;
   slots: { A: TestResult | null; B: TestResult | null };
-  cmpMsg: string; codeMsg: string; codeText: string;
+  cmpMsg: string; codeMsg: string; codeText: string; shareMsg: string;
   status: string; legend: { min: string; max: string };
+  lang: Lang; phongThuy: boolean; insights: Insight[]; alignments: Alignment[];
   rev: number;
 }
 type Slot = 'A' | 'B';
@@ -68,7 +72,7 @@ export class Engine {
   private brush = { wall: 1, open: 2, erase: 2 };
   private fanDir = 0;
   private running = true;
-  private view: View = 'fresh';
+  private view: View = 'temp';
   private particlesOn = true; private arrowsOn = false; private deadOn = true; private labelsOn = true;
   private deadThr = 0.1; private simSpeed = 3; private testT = 120;
   private test: { slot: Slot; T: number; wasRunning: boolean } | null = null;
@@ -78,7 +82,9 @@ export class Engine {
   private hover: Pt | null = null;
   private stats: RoomStat[] = [];
   private saved: { plan: Layout | null; section: Layout | null } = { plan: null, section: null };
-  private cmpMsg = ''; private codeMsg = ''; private codeText = '';
+  private cmpMsg = ''; private codeMsg = ''; private codeText = ''; private shareMsg = ''; private shareTimer: ReturnType<typeof setTimeout> | undefined;
+  private lang: Lang = 'en'; private phongThuy = false;
+  private insightList: Insight[] = []; private aligns: Alignment[] = [];
 
   // rendering
   private cv: HTMLCanvasElement | null = null; private ctx: CanvasRenderingContext2D | null = null;
@@ -125,10 +131,13 @@ export class Engine {
       phys: { mixing: s.mixing, swirl: s.swirl, fanSpeed: s.fanSpeed, heatDT: s.heatDT, gain: s.gain, ceilH: s.ceilH },
       t: s.t, dirty: s.dirty, stats: this.stats, score: Sim.score(this.stats),
       test: this.test ? { slot: this.test.slot, T: this.test.T } : null,
-      slots: this.slots, cmpMsg: this.cmpMsg, codeMsg: this.codeMsg, codeText: this.codeText,
+      slots: this.slots, cmpMsg: this.cmpMsg, codeMsg: this.codeMsg, codeText: this.codeText, shareMsg: this.shareMsg,
+      lang: this.lang, phongThuy: this.phongThuy, insights: this.insightList, alignments: this.aligns,
       status: this.statusText(), legend: this.legendText(), rev: ++this.rev
     };
   }
+
+  private t = (key: string, vars?: Record<string, string | number>): string => translate(this.lang, key, vars);
 
   /* ------------------------------------------------------------ lifecycle */
   attach(cv: HTMLCanvasElement, wrap: HTMLElement, lg: HTMLCanvasElement): void {
@@ -157,7 +166,7 @@ export class Engine {
     this.resizeBuffers(); this.readColors();
     if (!this.booted) { // React StrictMode mounts twice in dev: only load the layout once
       this.booted = true;
-      if (!this.restore()) this.loadPreset('studio', true);
+      if (!this.loadFromHash() && !this.restore()) this.loadPreset('studio', true);
       this.prewarm();
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.running = false;
     }
@@ -167,7 +176,7 @@ export class Engine {
   }
 
   detach(): void {
-    cancelAnimationFrame(this.raf); clearTimeout(this.persistTimer);
+    cancelAnimationFrame(this.raf); clearTimeout(this.persistTimer); clearTimeout(this.shareTimer);
     this.cleanup.forEach((f) => f()); this.cleanup = [];
     this.cv = this.ctx = this.wrap = this.lg = this.fc = this.fctx = null;
   }
@@ -347,6 +356,29 @@ export class Engine {
   setTestT = (v: number): void => { this.testT = v; this.emit(); };
   setPhys = (k: 'mixing' | 'swirl' | 'fanSpeed' | 'heatDT' | 'gain' | 'ceilH', v: number): void => { this.sim[k] = v; this.emit(); };
   setWind = (speed: number, deg: number): void => { this.sim.setWind(speed, deg); this.sim.dirty = true; this.persist(); this.emit(); };
+  setLang = (l: Lang): void => { this.lang = l; this.updatePanels(); };
+  setPhongThuy = (on: boolean): void => { this.phongThuy = on; this.updatePanels(); };
+
+  /** Opens a layout carried in the URL fragment, if there is one. Returns true when it was loaded. */
+  private loadFromHash(): boolean {
+    try {
+      const l = fromHash(window.location.hash);
+      if (!l) return false;
+      this.applyLayout(l); return true;
+    } catch (err) {
+      this.codeMsg = this.t('msg.badLink') + ' ' + (err as Error).message;
+      return false;
+    }
+  }
+  async copyLink(): Promise<void> {
+    const url = window.location.origin + window.location.pathname + toHash(this.capture());
+    try { await navigator.clipboard.writeText(url); this.shareMsg = this.t('share.copied'); }
+    catch { window.history.replaceState(null, '', toHash(this.capture())); this.shareMsg = this.t('share.inUrl'); }
+    clearTimeout(this.shareTimer);
+    this.shareTimer = setTimeout(() => { this.shareMsg = ''; this.emit(); }, 3000);
+    this.emit();
+  }
+
   setGrid = (k: GridKey): void => { const g = GRIDS[k]; this.replaceSim(g[0], g[1], true); this.persist(); this.updatePanels(); };
   setCellSize = (m: number): void => { this.sim.cellSize = m; this.sim.resetFlow(); this.persist(); this.updatePanels(); };
 
@@ -405,11 +437,11 @@ export class Engine {
   }
 
   /* ------------------------------------------------------------ code box */
-  exportCode = (): void => { this.codeText = serialize(this.capture()); this.codeMsg = 'Layout code ready. Copy it somewhere safe.'; this.emit(); };
+  exportCode = (): void => { this.codeText = serialize(this.capture()); this.codeMsg = this.t('msg.codeReady'); this.emit(); };
   setCodeText = (t: string): void => { this.codeText = t; this.emit(); };
   async copyCode(): Promise<void> {
     if (!this.codeText) this.codeText = serialize(this.capture());
-    try { await navigator.clipboard.writeText(this.codeText); this.codeMsg = 'Copied.'; } catch { this.codeMsg = 'Select the text and press Ctrl+C to copy.'; }
+    try { await navigator.clipboard.writeText(this.codeText); this.codeMsg = this.t('msg.copied'); } catch { this.codeMsg = this.t('msg.copyManual'); }
     this.emit();
   }
   importCode = (): void => {
@@ -417,8 +449,8 @@ export class Engine {
       const l = deserialize(this.codeText.trim());
       this.pushHist(this.types());
       if (l.mode !== this.sim.mode) this.saved[this.sim.mode] = this.capture();
-      this.applyLayout(l); this.prewarm(); this.persist(); this.codeMsg = 'Layout loaded.';
-    } catch (err) { this.codeMsg = 'Could not read that code: ' + (err as Error).message; }
+      this.applyLayout(l); this.prewarm(); this.persist(); this.codeMsg = this.t('msg.loaded');
+    } catch (err) { this.codeMsg = this.t('msg.badCode') + ' ' + (err as Error).message; }
     this.updatePanels();
   };
 
@@ -429,7 +461,7 @@ export class Engine {
   }
   startTest = (slot: Slot): void => {
     if (this.test) return;
-    if (!this.sim.rooms.length) { this.cmpMsg = 'Draw at least one closed room before testing.'; this.emit(); return; }
+    if (!this.sim.rooms.length) { this.cmpMsg = this.t('msg.needRoom'); this.emit(); return; }
     this.cmpMsg = ''; this.sim.resetFlow();
     this.test = { slot, T: this.testT, wasRunning: this.running }; this.running = false; this.emit();
   };
@@ -452,30 +484,34 @@ export class Engine {
 
   /* ------------------------------------------------------------- panels */
   private updatePanels(): void {
-    this.stats = this.sim.roomStats(this.deadThr);
+    const s = this.sim;
+    this.stats = s.roomStats(this.deadThr);
+    this.insightList = s.dirty ? (this.stats.length ? [{ key: 'insight.dirty', vars: {}, tone: 'info' }] : [])
+      : makeInsights(s, this.stats, !this.test && s.t >= 40);
+    this.aligns = this.phongThuy ? detectAlignments(s) : [];
     this.drawLegend(); this.emit();
   }
   private statusText(): string {
     const h = this.hover, s = this.sim;
     if (h && inb(s, h.x, h.y)) return this.probeText(h.x, h.y);
-    return (TOOLS.find((t) => t.id === this.tool)?.tip ?? '') + '. Hover to read the air at any point.';
+    return this.t(`tool.${this.tool}.tip`) + '. ' + this.t('status.hover');
   }
   private probeText(cx: number, cy: number): string {
     const s = this.sim, c = s.idx(cx, cy), t = s.cell[c], h = s.cellSize;
     const pos = `x ${fmt((cx + 0.5) * h, 1)} m, y ${fmt((cy + 0.5) * h, 1)} m`;
-    if (t === T_WALL) return pos + ' | wall';
+    if (t === T_WALL) return pos + ' | ' + this.t('probe.wall');
     const lab = s.labels[c];
-    const where = t === T_OPEN ? 'opening' : t === T_FAN ? 'fan' : t === T_HEAT ? 'heater' : lab > 0 ? s.rooms[lab - 1].name : lab === -1 ? 'outside' : 'pocket';
+    const where = t === T_OPEN ? this.t('probe.opening') : t === T_FAN ? this.t('probe.fan') : t === T_HEAT ? this.t('probe.heater') : lab > 0 ? s.rooms[lab - 1].name : lab === -1 ? this.t('probe.outside') : this.t('probe.pocket');
     const u = s.u[c], v = s.v[c], sp = Math.hypot(u, v);
-    return `${pos} | ${where} | ${fmt(sp, 2)} m/s ${sp > 0.02 ? arrowOf(u, v) : ''} | fresh ${pct(s.fresh[c])} | age ${fmt(s.age[c], 0)} s | +${fmt(s.temp[c], 1)} K`;
+    return `${pos} | ${where} | ${fmt(sp, 2)} m/s ${sp > 0.02 ? arrowOf(u, v) : ''} | ${this.t('probe.fresh')} ${pct(s.fresh[c])} | ${this.t('probe.age')} ${fmt(s.age[c], 0)} s | +${fmt(s.temp[c], 1)} K`;
   }
   private tempScale(): number { return this.sim.heaters.length ? Math.max(3, this.sim.heatDT * 0.6) : 3; }
   private vmaxView(): number { const s = this.sim; return Math.max(1, s.speed * 1.1, s.fans.length ? s.fanSpeed : 0); }
   private legendText(): { min: string; max: string } {
     const v = this.view, s = this.sim;
     return {
-      min: v === 'fresh' ? 'stale' : v === 'age' ? 'young' : '0',
-      max: v === 'fresh' ? 'fresh' : v === 'speed' ? fmt(this.vmaxView(), 1) + ' m/s' : v === 'age' ? fmt(Math.max(s.t, 10), 0) + ' s' : '+' + fmt(this.tempScale(), 0) + ' K'
+      min: v === 'fresh' ? this.t('legend.stale') : v === 'age' ? this.t('legend.young') : '0',
+      max: v === 'fresh' ? this.t('legend.fresh') : v === 'speed' ? fmt(this.vmaxView(), 1) + ' m/s' : v === 'age' ? fmt(Math.max(s.t, 10), 0) + ' s' : '+' + fmt(this.tempScale(), 0) + ' K'
     };
   }
   private drawLegend(): void {
@@ -549,6 +585,7 @@ export class Engine {
     if (this.particlesOn) this.drawParticles();
     if (this.arrowsOn) this.drawArrows();
     this.drawWindMarks();
+    if (this.phongThuy) this.drawAlignments();
     if (this.labelsOn) for (const r of this.stats) this.chip(`${r.name} ${fmt(r.area, 0)} m²`, (r.cx + 0.5) * P, (r.cy + 0.5) * P, 'center');
     this.drawPreview(); this.drawHUD();
   }
@@ -598,6 +635,15 @@ export class Engine {
       if (side === 0) mark(P * 3.2, f * H * P); else if (side === 1) mark(W * P - P * 1.2, f * H * P); else if (side === 2) mark(f * W * P, P * 3.2); else mark(f * W * P, H * P - P * 1.2);
     }
     ctx.stroke(); ctx.restore();
+  }
+  private drawAlignments(): void {
+    const ctx = this.ctx!, P = this.P;
+    ctx.save(); ctx.strokeStyle = this.C.heat; ctx.lineWidth = Math.max(2, this.DPR * 2); ctx.setLineDash([P * 1.5, P]); ctx.lineCap = 'round'; ctx.globalAlpha = 0.9;
+    for (const a of this.aligns) {
+      ctx.beginPath(); ctx.moveTo((a.a.x + 0.5) * P, (a.a.y + 0.5) * P); ctx.lineTo((a.b.x + 0.5) * P, (a.b.y + 0.5) * P); ctx.stroke();
+    }
+    ctx.restore();
+    for (const a of this.aligns) this.chip(`${fmt(a.speed, 1)} m/s`, ((a.a.x + a.b.x) / 2 + 0.5) * P, ((a.a.y + a.b.y) / 2 + 0.5) * P, 'center');
   }
   private chip(text: string, x: number, y: number, align: 'center' | 'left'): void {
     const ctx = this.ctx!, cv = this.cv!, DPR = this.DPR;

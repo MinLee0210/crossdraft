@@ -1,0 +1,200 @@
+import { PRESETS } from './presets';
+import { TOOLS, VIEWS } from './tools';
+import { WIND_PRESETS } from './winds';
+
+export type Lang = 'en' | 'vi';
+export const LANGS: Lang[] = ['en', 'vi'];
+type Dict = Record<string, string>;
+
+/* English is the source of truth. Preset, tool and view names come from their own modules. */
+const generated: Dict = {};
+for (const list of Object.values(PRESETS)) for (const p of list) { generated[`preset.${p.id}.name`] = p.name; generated[`preset.${p.id}.note`] = p.note; }
+for (const t of TOOLS) { generated[`tool.${t.id}.name`] = t.name; generated[`tool.${t.id}.tip`] = t.tip; }
+for (const [id, name] of VIEWS) generated[`view.${id}`] = name;
+
+export const EN: Dict = {
+  ...generated,
+  'app.tagline': 'Airflow sketchpad. Indicative 2D, not CFD.',
+  'mode.view': 'View', 'mode.plan': 'Plan', 'mode.plan.sub': 'top-down, wind only', 'mode.section': 'Section', 'mode.section.sub': 'side view, heat rises',
+  'theme.toLight': 'Switch to light mode', 'theme.toDark': 'Switch to dark mode', 'lang.label': 'Language',
+  'share.button': 'Share link', 'share.copied': 'Link copied', 'share.inUrl': 'Link is in the address bar',
+
+  'tools.label': 'Drawing tools', 'canvas.label': 'Floor plan with simulated airflow',
+  'opt.thickness': 'Thickness', 'opt.brush': 'Brush',
+  'opt.block': 'Drag a rectangle: a neighbouring building, a courtyard wall, a cupboard.',
+  'opt.open': 'Drag along a wall to cut a door or window. Use 3 for thick walls.',
+  'opt.erase': 'Right-click erases with any tool.',
+  'opt.fanDir': 'Fan direction', 'opt.fanBlows': 'Blows {dir}. Press R to rotate. Speed is under Physics.',
+  'opt.heatSection': 'Warm air rises from heaters, people and appliances. Paint a few cells on the floor.',
+  'opt.heatPlan': 'A fixed-temperature source (oven, radiator, server). In Plan it only warms the air passing by. Switch to Section to see it make air rise.',
+  'fan.east': 'east', 'fan.southeast': 'south-east', 'fan.south': 'south', 'fan.southwest': 'south-west', 'fan.west': 'west', 'fan.northwest': 'north-west', 'fan.north': 'north', 'fan.northeast': 'north-east',
+
+  'run.pause': 'Pause', 'run.start': 'Start', 'run.reset': 'Reset flow', 'run.resetTip': 'Restart the air and keep the layout', 'run.clear': 'Clear',
+  'run.undo': 'Undo', 'run.redo': 'Redo', 'run.speed': 'Speed', 'run.speedLabel': 'Simulation speed',
+  'legend.label': 'Field shown', 'legend.stale': 'stale', 'legend.fresh': 'fresh', 'legend.young': 'young',
+  'status.hover': 'Hover to read the air at any point.',
+  'probe.wall': 'wall', 'probe.opening': 'opening', 'probe.fan': 'fan', 'probe.heater': 'heater', 'probe.outside': 'outside', 'probe.pocket': 'pocket', 'probe.fresh': 'fresh', 'probe.age': 'age',
+
+  'wind.title': 'Wind', 'wind.dial': 'Wind direction dial. Drag to set.', 'wind.dir': 'Direction the wind comes from', 'wind.speed': 'Speed',
+  'wind.none': 'No wind', 'wind.blowsTo': 'blows toward {dir}', 'wind.calmSection': ' (calm in section)',
+  'wind.hintPlan': 'Drag the dial or use the sliders. The wind blows across the whole domain.',
+  'wind.hintSection': 'Section view uses only the west/east part of the wind. North and south mean calm, so heat does all the work.',
+  'wind.typical': 'Typical winds', 'wind.choose': 'Choose a typical wind...',
+  'wind.typicalNote': 'Typical values for teaching, not site data. Real wind changes with street, height and year.',
+  'wind.ne-winter': 'NE winter monsoon (north Vietnam, Oct-Mar)', 'wind.se-summer': 'SE summer breeze (north Vietnam, May-Sep)',
+  'wind.sw-monsoon': 'SW summer monsoon (south Vietnam, May-Oct)', 'wind.east-dry': 'E trade wind (south Vietnam, dry season)', 'wind.calm': 'Calm',
+  'beau.calm': 'Calm', 'beau.lightAir': 'Light air', 'beau.lightBreeze': 'Light breeze', 'beau.gentle': 'Gentle breeze', 'beau.moderate': 'Moderate breeze', 'beau.fresh': 'Fresh breeze', 'beau.strong': 'Strong breeze',
+
+  'ov.title': 'Overlays', 'ov.streaks': 'Flow streaks', 'ov.arrows': 'Velocity arrows', 'ov.dead': 'Dead zones', 'ov.labels': 'Room labels', 'ov.pt': 'Feng shui checks',
+  'ov.thr': 'Still-air threshold',
+
+  'rooms.title': 'Rooms', 'rooms.of': '/ 100', 'chip.none': 'no closed room', 'chip.edited': 'edited since reset', 'chip.settling': 'settling {t}/{T} s', 'chip.settled': 'settled',
+  'kpi.flush': 'Stale air flushed', 'kpi.dead': 'Dead-zone area', 'kpi.comfort': 'Draft comfort', 'kpi.age': 'Mean air age',
+  'tbl.room': 'Room', 'tbl.dead': 'Dead', 'tbl.fresh': 'Fresh',
+  'rooms.noteNone': 'Walls must form a closed loop. Cut doors and windows with the Opening tool, since openings count as part of the wall.',
+  'rooms.noteDirty': 'You changed the layout or wind during this run, so the numbers mix old and new air. Press Reset flow, or run a test into A or B.',
+  'rooms.noteOk': 'Numbers are for the current run. Use Test into A or B for a fixed-length comparison.',
+  'rooms.formula': 'score = 50 x flushed + 30 x (1 - dead zone) + 20 x comfort. Comfort is 100% up to 0.3 m/s and falls to 0 at 1.5 m/s. T90 is the time for a room to reach 90% fresh air.',
+  'insight.title': 'What the air is doing',
+  'insight.settling': 'Reading the air... let it run for 40 s without editing.',
+  'insight.dirty': 'You edited the layout or wind. Press Reset flow to read the new design.',
+  'insight.calm': 'There is no wind, and nothing else moves air in Plan view. Set a wind speed, or add a fan.',
+  'insight.sealed': '{room} is sealed: it has no opening, so air cannot get in.',
+  'insight.oneOpening': '{room} stays stale ({fresh}% fresh): it has only one opening, so air has no way to flow through. Add an opening on another wall.',
+  'insight.noExterior': '{room} stays stale ({fresh}% fresh): its openings only lead to other rooms, so air must cross them first. Give it a window to the outside.',
+  'insight.lowFlow': '{room} has {n} openings but little flow ({fresh}% fresh). They may be on the same side or sheltered from the wind. Put one on the opposite wall.',
+  'insight.flushes': '{room} flushes well ({fresh}% fresh): air enters at one opening and leaves at another.',
+  'insight.deadZone': '{dead}% of {room} is almost still air. Try moving a door or window, or add a fan.',
+
+  'pt.title': 'Feng shui checks', 'pt.disclaimer': 'Traditional belief, not engineering. Crossdraft shows what the air does. It does not score luck.',
+  'pt.none': 'No front-to-back alignment found. Openings that face each other along a clear line are marked with a dashed line.',
+  'pt.found': 'Two openings of {room} face each other, {len} m apart. Mean air speed along the line: {speed} m/s.',
+  'pt.tradition': 'Tradition: air (khi) that enters the front door should gather in the house, not run straight out the back. Usual remedies: a screen, a large plant, a shelf, a curtain, or an L-shaped entry.',
+  'pt.physics': 'Physics: openings facing each other are the best layout for cross-ventilation, so this line flushes the room. The cost can be a draught along it. A screen cuts the draught but also slows the flushing.',
+
+  'cmp.title': 'Compare layouts (A/B)', 'cmp.hint': 'Runs a fresh test from stale air at the current wind and stores the result. Change the design, test again into B.',
+  'cmp.length': 'Test length', 'cmp.testA': 'Test → A', 'cmp.testB': 'Test → B', 'cmp.testing': 'Testing into {slot}: {t} of {T} s', 'cmp.cancel': 'Cancel',
+  'cmp.vs': 'B vs A', 'cmp.wind': 'Wind', 'cmp.loadA': 'Load A', 'cmp.loadB': 'Load B', 'cmp.same': 'same', 'cmp.pts': 'pts',
+  'cmp.score': 'Score', 'cmp.flush': 'Stale air flushed', 'cmp.dead': 'Dead-zone area', 'cmp.comfort': 'Draft comfort', 'cmp.speed': 'Mean air speed', 'cmp.age': 'Mean air age', 'cmp.t90': 'Slowest room to 90%',
+
+  'lay.title': 'Layouts', 'lay.example': 'Example', 'lay.load': 'Load example', 'lay.notice': 'What to notice:', 'lay.grid': 'Grid', 'lay.cell': 'Cell size',
+  'grid.s': '80 x 54 (fast)', 'grid.m': '120 x 80', 'grid.l': '160 x 106 (slow)',
+  'lay.domain': 'Domain {w} x {h} m.', 'lay.plan': 'Plan: all four edges are open to the outside.', 'lay.section': 'Section: the ground and the lid are closed to flow, west and east are open, gravity points down.',
+
+  'phys.title': 'Physics', 'phys.mixing': 'Turbulent mixing', 'phys.swirl': 'Swirl boost', 'phys.fanSpeed': 'Fan speed', 'phys.heatDT': 'Heater excess', 'phys.gain': 'Room heat gain (Plan)', 'phys.ceilH': 'Ceiling height',
+  'phys.note': 'Incompressible Stam solver on a grid. Walls are one cell thick and leak-tight. Room heat gain stands for people, appliances and sun, and it warms every enclosed room in Plan view. Temperatures are rises above outdoor air. Real rooms have 3D turbulence, furniture and pressure fluctuations that this does not model, so use it to compare layouts, not to certify them.',
+
+  'code.title': 'Save and load', 'code.label': 'Layout code', 'code.placeholder': 'Press Export to get a layout code, or paste one here and press Import.',
+  'code.export': 'Export', 'code.copy': 'Copy', 'code.import': 'Import',
+  'msg.codeReady': 'Layout code ready. Copy it somewhere safe.', 'msg.copied': 'Copied.', 'msg.copyManual': 'Select the text and press Ctrl+C to copy.', 'msg.loaded': 'Layout loaded.',
+  'msg.badCode': 'Could not read that code:', 'msg.badLink': 'Could not open the share link:', 'msg.needRoom': 'Draw at least one closed room before testing.'
+};
+
+/* Vietnamese. Please have a native speaker review before wider release. */
+export const VI: Dict = {
+  'preset.studio.name': 'Studio thông gió xuyên phòng', 'preset.studio.note': 'Hai cửa sổ đối diện nhau nên gió đi thẳng qua phòng. Đây là mẫu chuẩn để so sánh.',
+  'preset.tworooms.name': 'Hai phòng và một cửa đi', 'preset.tworooms.note': 'Gió chỉ sang phòng thứ hai qua cửa nhỏ. Hãy so sánh độ tươi của không khí giữa R1 và R2.',
+  'preset.sameside.name': 'Cửa sổ chỉ ở một phía', 'preset.sameside.note': 'Cả hai cửa sổ nằm trên cùng một bức tường nên gió gần như không vào được. So sánh với studio.',
+  'preset.fanfix.name': 'Một phía, thêm quạt', 'preset.fanfix.note': 'Cùng căn nhà trước, có thêm hai quạt. Hãy thử Test vào A, rồi bỏ quạt và test vào B.',
+  'preset.shadow.name': 'Studio khuất sau nhà bên cạnh', 'preset.shadow.note': 'Khối nhà bên cạnh che chắn cửa sổ. Xoay la bàn gió để xem khi nào nó hết ảnh hưởng.',
+  'preset.tube.name': 'Nhà ống có giếng trời', 'preset.tube.note': 'Ngôi nhà hẹp nằm giữa hai nhà hàng xóm. Gió chạy suốt chiều dài nhà, và khoảng hở ở tường phía bắc là giếng trời. Hãy cho gió thổi từ phía bắc (quay về 0): giếng trời vẫn đưa gió vào phòng giữa.',
+  'preset.flat.name': 'Căn hộ: phòng ngủ nằm sau phòng khách', 'preset.flat.note': 'Hai phòng ngủ nằm sau phòng khách và không có cửa sổ. Xem gió đến được rất ít, rồi thử thêm một cửa sổ ở tường phía đông.',
+  'preset.court.name': 'Nhà có sân trong', 'preset.court.note': 'Hai cánh bắc và nam nhận gió từ sân trong mở và thông thoáng tốt. Cánh đông chỉ có một ô mở nên không khí vẫn tù. Thêm một cửa sổ vào tường phía đông của nó rồi test lại.',
+  'preset.stack.name': 'Cửa sổ thấp, ô thoáng cao, lò sưởi', 'preset.stack.note': 'Không khí nóng thoát ra ô thoáng cao và kéo không khí mát vào từ dưới thấp. Chuyển sang chế độ xem Nhiệt.',
+  'preset.roof.name': 'Ngày lặng gió, ô thoáng mái', 'preset.roof.note': 'Hoàn toàn không có gió: chỉ có lò sưởi làm không khí chuyển động, đi lên qua ô thoáng mái.',
+  'preset.crossonly.name': 'Chỉ có gió, không có nguồn nhiệt', 'preset.crossonly.note': 'Chỉ có luồng gió tự nhiên. So sánh với bản có lò sưởi.',
+  'preset.lowlow.name': 'Cả hai ô mở đều thấp', 'preset.lowlow.note': 'Cả hai ô mở đều ở thấp nên hơi nóng không có đường thoát phía trên. So sánh với ví dụ đầu tiên.',
+
+  'tool.wall.name': 'Tường', 'tool.wall.tip': 'Vẽ tường tự do',
+  'tool.line.name': 'Đường', 'tool.line.tip': 'Tường thẳng. Giữ Shift để vẽ theo bước 45 độ',
+  'tool.box.name': 'Phòng', 'tool.box.tip': 'Khung phòng hình chữ nhật',
+  'tool.block.name': 'Khối', 'tool.block.tip': 'Khối đặc: nhà bên cạnh, cây, đồ nội thất',
+  'tool.open.name': 'Ô mở', 'tool.open.tip': 'Khoét cửa đi hoặc cửa sổ: kéo dọc theo tường',
+  'tool.fan.name': 'Quạt', 'tool.fan.tip': 'Đặt quạt. Nhấn R để xoay',
+  'tool.heat.name': 'Nguồn nhiệt', 'tool.heat.tip': 'Nguồn nhiệt (tạo dòng khí ở chế độ Mặt cắt)',
+  'tool.erase.name': 'Xóa', 'tool.erase.tip': 'Xóa. Nhấn chuột phải để xóa với bất kỳ công cụ nào',
+  'view.fresh': 'Không khí sạch', 'view.speed': 'Tốc độ', 'view.age': 'Tuổi không khí', 'view.temp': 'Nhiệt',
+
+  'app.tagline': 'Bảng phác thảo luồng gió. Mô phỏng 2D mang tính tham khảo, không phải CFD.',
+  'mode.view': 'Chế độ xem', 'mode.plan': 'Mặt bằng', 'mode.plan.sub': 'nhìn từ trên, chỉ có gió', 'mode.section': 'Mặt cắt', 'mode.section.sub': 'nhìn ngang, khí nóng bay lên',
+  'theme.toLight': 'Chuyển sang giao diện sáng', 'theme.toDark': 'Chuyển sang giao diện tối', 'lang.label': 'Ngôn ngữ',
+  'share.button': 'Chia sẻ liên kết', 'share.copied': 'Đã sao chép liên kết', 'share.inUrl': 'Liên kết nằm trên thanh địa chỉ',
+
+  'tools.label': 'Công cụ vẽ', 'canvas.label': 'Mặt bằng với luồng gió mô phỏng',
+  'opt.thickness': 'Độ dày', 'opt.brush': 'Cỡ cọ',
+  'opt.block': 'Kéo một hình chữ nhật: nhà bên cạnh, tường sân, tủ.',
+  'opt.open': 'Kéo dọc theo tường để khoét cửa đi hoặc cửa sổ. Dùng cỡ 3 cho tường dày.',
+  'opt.erase': 'Nhấn chuột phải để xóa với bất kỳ công cụ nào.',
+  'opt.fanDir': 'Hướng quạt', 'opt.fanBlows': 'Thổi về hướng {dir}. Nhấn R để xoay. Tốc độ chỉnh ở mục Vật lý.',
+  'opt.heatSection': 'Không khí nóng bay lên từ lò sưởi, người và thiết bị. Hãy tô vài ô trên sàn.',
+  'opt.heatPlan': 'Nguồn có nhiệt độ cố định (bếp, lò sưởi, máy chủ). Ở Mặt bằng nó chỉ làm ấm không khí đi ngang qua. Chuyển sang Mặt cắt để thấy khí nóng bay lên.',
+  'fan.east': 'đông', 'fan.southeast': 'đông nam', 'fan.south': 'nam', 'fan.southwest': 'tây nam', 'fan.west': 'tây', 'fan.northwest': 'tây bắc', 'fan.north': 'bắc', 'fan.northeast': 'đông bắc',
+
+  'run.pause': 'Tạm dừng', 'run.start': 'Bắt đầu', 'run.reset': 'Đặt lại luồng khí', 'run.resetTip': 'Chạy lại không khí và giữ nguyên bản vẽ', 'run.clear': 'Xóa hết',
+  'run.undo': 'Hoàn tác', 'run.redo': 'Làm lại', 'run.speed': 'Tốc độ', 'run.speedLabel': 'Tốc độ mô phỏng',
+  'legend.label': 'Dữ liệu đang xem', 'legend.stale': 'tù', 'legend.fresh': 'sạch', 'legend.young': 'mới',
+  'status.hover': 'Di chuột để đọc thông số không khí tại mọi điểm.',
+  'probe.wall': 'tường', 'probe.opening': 'ô mở', 'probe.fan': 'quạt', 'probe.heater': 'nguồn nhiệt', 'probe.outside': 'bên ngoài', 'probe.pocket': 'ô kín nhỏ', 'probe.fresh': 'sạch', 'probe.age': 'tuổi',
+
+  'wind.title': 'Gió', 'wind.dial': 'La bàn hướng gió. Kéo để chỉnh.', 'wind.dir': 'Hướng gió thổi đến', 'wind.speed': 'Tốc độ',
+  'wind.none': 'Không có gió', 'wind.blowsTo': 'thổi về hướng {dir}', 'wind.calmSection': ' (lặng gió ở mặt cắt)',
+  'wind.hintPlan': 'Kéo la bàn hoặc dùng thanh trượt. Gió thổi qua toàn bộ khu vực.',
+  'wind.hintSection': 'Mặt cắt chỉ dùng thành phần gió đông/tây. Gió bắc và nam coi như lặng, nên chỉ có nhiệt làm không khí chuyển động.',
+  'wind.typical': 'Gió điển hình', 'wind.choose': 'Chọn một hướng gió điển hình...',
+  'wind.typicalNote': 'Đây là giá trị điển hình để minh họa, không phải số liệu tại công trình. Gió thực tế thay đổi theo đường phố, độ cao và từng năm.',
+  'wind.ne-winter': 'Gió mùa đông bắc mùa đông (miền Bắc, tháng 10-3)', 'wind.se-summer': 'Gió đông nam mùa hè (miền Bắc, tháng 5-9)',
+  'wind.sw-monsoon': 'Gió mùa tây nam mùa hè (miền Nam, tháng 5-10)', 'wind.east-dry': 'Gió đông mùa khô (miền Nam)', 'wind.calm': 'Lặng gió',
+  'beau.calm': 'Lặng gió', 'beau.lightAir': 'Gió rất nhẹ', 'beau.lightBreeze': 'Gió nhẹ', 'beau.gentle': 'Gió dịu', 'beau.moderate': 'Gió vừa', 'beau.fresh': 'Gió khá mạnh', 'beau.strong': 'Gió mạnh',
+
+  'ov.title': 'Lớp hiển thị', 'ov.streaks': 'Vệt dòng khí', 'ov.arrows': 'Mũi tên vận tốc', 'ov.dead': 'Vùng khí tù', 'ov.labels': 'Tên phòng', 'ov.pt': 'Kiểm tra phong thủy',
+  'ov.thr': 'Ngưỡng không khí đứng yên',
+
+  'rooms.title': 'Các phòng', 'rooms.of': '/ 100', 'chip.none': 'chưa có phòng kín', 'chip.edited': 'đã sửa sau lần đặt lại', 'chip.settling': 'đang ổn định {t}/{T} giây', 'chip.settled': 'đã ổn định',
+  'kpi.flush': 'Khí tù được thay', 'kpi.dead': 'Diện tích khí tù', 'kpi.comfort': 'Thoải mái, không lùa gió', 'kpi.age': 'Tuổi không khí TB',
+  'tbl.room': 'Phòng', 'tbl.dead': 'Tù', 'tbl.fresh': 'Sạch',
+  'rooms.noteNone': 'Tường phải khép kín thành một vòng. Hãy khoét cửa đi và cửa sổ bằng công cụ Ô mở, vì ô mở được tính như một phần của tường.',
+  'rooms.noteDirty': 'Bạn đã đổi bản vẽ hoặc gió trong lần chạy này nên số liệu trộn lẫn không khí cũ và mới. Nhấn Đặt lại luồng khí, hoặc chạy test vào A hoặc B.',
+  'rooms.noteOk': 'Số liệu là của lần chạy hiện tại. Dùng Test vào A hoặc B để so sánh trong cùng một khoảng thời gian.',
+  'rooms.formula': 'điểm = 50 x khí tù được thay + 30 x (1 - vùng khí tù) + 20 x thoải mái. Thoải mái đạt 100% đến 0,3 m/s và giảm về 0 ở 1,5 m/s. T90 là thời gian để một phòng đạt 90% không khí sạch.',
+  'insight.title': 'Không khí đang làm gì',
+  'insight.settling': 'Đang đọc luồng khí... hãy để chạy 40 giây và đừng chỉnh sửa.',
+  'insight.dirty': 'Bạn đã sửa bản vẽ hoặc gió. Nhấn Đặt lại luồng khí để đọc thiết kế mới.',
+  'insight.calm': 'Không có gió, và ở Mặt bằng không có gì khác làm không khí chuyển động. Hãy đặt tốc độ gió hoặc thêm quạt.',
+  'insight.sealed': '{room} bị bịt kín: không có ô mở nào nên không khí không vào được.',
+  'insight.oneOpening': '{room} bị tù ({fresh}% sạch): chỉ có một ô mở nên gió không có đường đi xuyên qua. Hãy thêm một ô mở ở bức tường khác.',
+  'insight.noExterior': '{room} bị tù ({fresh}% sạch): các ô mở chỉ dẫn sang phòng khác nên gió phải đi qua đó trước. Hãy thêm cho nó một cửa sổ ra bên ngoài.',
+  'insight.lowFlow': '{room} có {n} ô mở nhưng gió ít ({fresh}% sạch). Chúng có thể nằm cùng một phía hoặc bị che gió. Hãy đặt một ô ở bức tường đối diện.',
+  'insight.flushes': '{room} thông thoáng tốt ({fresh}% sạch): gió vào ở một ô mở và ra ở ô khác.',
+  'insight.deadZone': '{dead}% diện tích {room} gần như không có gió. Hãy thử dời cửa đi hoặc cửa sổ, hoặc thêm quạt.',
+
+  'pt.title': 'Kiểm tra phong thủy', 'pt.disclaimer': 'Đây là quan niệm truyền thống, không phải kỹ thuật. Crossdraft cho thấy không khí thực sự chuyển động ra sao, không chấm điểm vận may.',
+  'pt.none': 'Không thấy cửa chính thẳng hàng với cửa sau. Các ô mở đối diện nhau trên một đường thông thoáng sẽ được vẽ bằng nét đứt.',
+  'pt.found': 'Hai ô mở của {room} đối diện nhau, cách nhau {len} m. Tốc độ gió trung bình dọc đường này: {speed} m/s.',
+  'pt.tradition': 'Quan niệm truyền thống: khí vào cửa chính nên tụ lại trong nhà, không nên xuyên thẳng ra cửa sau. Cách hóa giải thường gặp: bình phong, chậu cây lớn, kệ, rèm, hoặc lối vào chữ L.',
+  'pt.physics': 'Vật lý: các ô mở đối diện nhau là bố cục thông gió xuyên phòng tốt nhất nên đường này làm phòng thoáng nhanh. Cái giá có thể là gió lùa dọc theo nó. Bình phong giảm gió lùa nhưng cũng làm chậm việc thay khí.',
+
+  'cmp.title': 'So sánh bản vẽ (A/B)', 'cmp.hint': 'Chạy một lần test mới, bắt đầu từ không khí tù ở hướng gió hiện tại, rồi lưu kết quả. Đổi thiết kế rồi test lại vào B.',
+  'cmp.length': 'Thời gian test', 'cmp.testA': 'Test → A', 'cmp.testB': 'Test → B', 'cmp.testing': 'Đang test vào {slot}: {t} trên {T} giây', 'cmp.cancel': 'Hủy',
+  'cmp.vs': 'B so với A', 'cmp.wind': 'Gió', 'cmp.loadA': 'Mở A', 'cmp.loadB': 'Mở B', 'cmp.same': 'như nhau', 'cmp.pts': 'điểm',
+  'cmp.score': 'Điểm', 'cmp.flush': 'Khí tù được thay', 'cmp.dead': 'Diện tích khí tù', 'cmp.comfort': 'Thoải mái, không lùa gió', 'cmp.speed': 'Tốc độ gió TB', 'cmp.age': 'Tuổi không khí TB', 'cmp.t90': 'Phòng chậm nhất đạt 90%',
+
+  'lay.title': 'Bản vẽ', 'lay.example': 'Ví dụ', 'lay.load': 'Mở ví dụ', 'lay.notice': 'Điều cần để ý:', 'lay.grid': 'Lưới', 'lay.cell': 'Kích thước ô',
+  'grid.s': '80 x 54 (nhanh)', 'grid.m': '120 x 80', 'grid.l': '160 x 106 (chậm)',
+  'lay.domain': 'Khu vực {w} x {h} m.', 'lay.plan': 'Mặt bằng: cả bốn cạnh đều thông ra bên ngoài.', 'lay.section': 'Mặt cắt: nền đất và trần kín, hai phía tây và đông mở, trọng lực hướng xuống.',
+
+  'phys.title': 'Vật lý', 'phys.mixing': 'Xáo trộn rối', 'phys.swirl': 'Tăng xoáy', 'phys.fanSpeed': 'Tốc độ quạt', 'phys.heatDT': 'Độ chênh nhiệt của nguồn nóng', 'phys.gain': 'Nhiệt tỏa trong phòng (Mặt bằng)', 'phys.ceilH': 'Chiều cao trần',
+  'phys.note': 'Bộ giải Stam không nén trên lưới. Tường dày một ô và không rò khí. Nhiệt tỏa trong phòng đại diện cho người, thiết bị và nắng, và làm ấm mọi phòng kín ở Mặt bằng. Nhiệt độ là mức tăng so với không khí bên ngoài. Phòng thực có xoáy rối 3D, đồ đạc và dao động áp suất mà công cụ này không mô phỏng, nên hãy dùng để so sánh các phương án, không dùng để chứng nhận.',
+
+  'code.title': 'Lưu và mở', 'code.label': 'Mã bản vẽ', 'code.placeholder': 'Nhấn Xuất để lấy mã bản vẽ, hoặc dán mã vào đây rồi nhấn Nhập.',
+  'code.export': 'Xuất', 'code.copy': 'Sao chép', 'code.import': 'Nhập',
+  'msg.codeReady': 'Mã bản vẽ đã sẵn sàng. Hãy sao chép và lưu lại.', 'msg.copied': 'Đã sao chép.', 'msg.copyManual': 'Hãy chọn đoạn văn bản và nhấn Ctrl+C để sao chép.', 'msg.loaded': 'Đã mở bản vẽ.',
+  'msg.badCode': 'Không đọc được mã này:', 'msg.badLink': 'Không mở được liên kết chia sẻ:', 'msg.needRoom': 'Hãy vẽ ít nhất một phòng kín trước khi test.'
+};
+
+/** Looks up a string, falling back to English and then to the key. `{name}` placeholders are filled from `vars`. */
+export function translate(lang: Lang, key: string, vars?: Record<string, string | number>): string {
+  const s = (lang === 'vi' ? VI[key] : undefined) ?? EN[key] ?? key;
+  return vars ? s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')) : s;
+}
+
+export const WIND_IDS = WIND_PRESETS.map((p) => p.id);

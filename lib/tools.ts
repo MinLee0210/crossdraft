@@ -13,7 +13,7 @@ export const TOOLS: ToolDef[] = [
   { id: 'erase', name: 'Erase', key: '8', tip: 'Erase. Right-click erases with any tool', icon: 'M7 17l-3-3 9-9 6 6-6 6H7zM11 19h9' }
 ];
 
-export const VIEWS = [['fresh', 'Fresh air'], ['speed', 'Speed'], ['age', 'Air age'], ['temp', 'Heat']] as const;
+export const VIEWS = [['temp', 'Heat'], ['fresh', 'Fresh air'], ['speed', 'Speed'], ['age', 'Air age']] as const;
 export type View = (typeof VIEWS)[number][0];
 
 export const GRIDS = { s: [80, 54], m: [120, 80], l: [160, 106] } as const;

@@ -13,6 +13,11 @@ A static Next.js (App Router, TypeScript) site with no backend. Indicative 2D ai
 - Per-room metrics: area, mean speed, dead-zone %, fresh-air %, temperature rise, time to 90% fresh, plus a 0-100 score
 - A/B tests: run a fixed-length test into slot A or B and compare layouts
 - Example layouts, layout code export/import, hover probe
+- Plain-language insights per room ("R2 stays stale: only one opening")
+- Typical Vietnamese wind presets (monsoon and summer breeze), clearly labelled as not site data
+- Opt-in feng shui check (Phong Thuy in Vietnamese): marks a front door lined up with a back door and shows the air along it (tradition vs. physics, no luck score)
+- Share a design with a link (the layout is stored in the URL)
+- English and Vietnamese UI (the Vietnamese text still needs a native-speaker review)
 - Light and dark theme (sun/moon switch in the header, follows the OS by default)
 
 ## Run
@@ -29,8 +34,8 @@ npm run build        # static export to out/
 ```
 
 ## Project layout
-- `lib/`: solver (`sim.ts`), layout codes (`layout.ts`), canvas engine (`engine.ts`), drawing helpers and presets
-- `components/`: React UI (`App`, `Stage`, `Side`, `ThemeToggle`)
+- `lib/`: solver (`sim.ts`), layout codes and share links (`layout.ts`), canvas engine (`engine.ts`), drawing helpers, presets, insights, Phong Thuy checks, wind presets, translations (`i18n.ts`)
+- `components/`: React UI (`App`, `Stage`, `Side`, `ThemeToggle`, `LangToggle`)
 - `app/`: Next.js layout, page and global CSS
 - `tests/`: vitest suites
 - `legacy/`: the original single-file version, kept for reference
@@ -49,6 +54,9 @@ Serve that folder from GitHub Pages, Cloudflare Pages, Netlify or Vercel.
 - 2D only. A plan has no flow over the roof, so indoor speeds and deflection are overstated.
 - Use it to compare layouts, not to certify them. For real accuracy use OpenFOAM or similar.
 - Layouts are saved in your browser only (localStorage).
+
+## Fonts
+Inter and JetBrains Mono, both under the SIL Open Font License 1.1, loaded through `next/font` (self-hosted at build time).
 
 ## License
 See `LICENSE`.

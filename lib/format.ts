@@ -5,7 +5,8 @@ export const pct = (x: number): string => (Number.isFinite(x) ? Math.round(x * 1
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 export const compass = (d: number): string => COMPASS[Math.round((((d % 360) + 360) % 360) / 22.5) % 16];
 
-const BEAU: [number, string][] = [[0.3, 'Calm'], [1.6, 'Light air'], [3.4, 'Light breeze'], [5.5, 'Gentle breeze'], [8, 'Moderate breeze'], [10.8, 'Fresh breeze'], [99, 'Strong breeze']];
+/** Translation key for the Beaufort-style wind description. */
+const BEAU: [number, string][] = [[0.3, 'beau.calm'], [1.6, 'beau.lightAir'], [3.4, 'beau.lightBreeze'], [5.5, 'beau.gentle'], [8, 'beau.moderate'], [10.8, 'beau.fresh'], [99, 'beau.strong']];
 export const beaufort = (v: number): string => (BEAU.find((b) => v < b[0]) ?? BEAU[BEAU.length - 1])[1];
 
 const ARROWS = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'];

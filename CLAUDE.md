@@ -10,7 +10,9 @@ Crossdraft: Next.js (App Router, TypeScript) static site, a 2D airflow sketchpad
 ## Architecture
 - `lib/sim.ts`: pure solver, no DOM. Class `Sim`.
 - `lib/layout.ts`: layout-code format (`rle`, `serialize`, strict `deserialize`). Pure.
-- `lib/edit.ts`, `lib/presets.ts`, `lib/tools.ts`: drawing helpers, example layouts, tool metadata.
+- `lib/edit.ts`, `lib/presets.ts`, `lib/tools.ts`: drawing helpers, example layouts (each with a `note`), tool metadata.
+- `lib/openings.ts`, `lib/insights.ts`, `lib/phongthuy.ts`, `lib/winds.ts`: opening detection, plain-language room insights, door-alignment check, typical wind presets. All pure.
+- `lib/i18n.ts`: `EN` (source of truth) and `VI` dictionaries plus `translate(lang, key, vars)`. Components use `useT()`; the engine uses its own `t`. Every key must exist in both languages; `tests/i18n.test.ts` enforces it.
 - `lib/engine.ts`: class `Engine` owns the solver, editing state, canvas rendering, particles, A/B tests, persistence and the rAF loop. React never touches the canvas; it reads `engine.getSnapshot()` through `useSyncExternalStore` and calls engine methods.
 - `components/`: `App` (shell, keyboard), `Stage` (tools, canvas), `Side` (wind, rooms, compare, layouts, physics, save/load), `ThemeToggle` (sun/moon button; sets `data-theme` on `<html>`, saved as `crossdraft.theme`).
 - `app/`: layout (fonts via `next/font`), page, `globals.css` (CSS tokens, light and dark).
@@ -24,6 +26,9 @@ Crossdraft: Next.js (App Router, TypeScript) static site, a 2D airflow sketchpad
 - After any layout, wind or mode change call `sim.rebuild()`. After changing fields call `sim.resetFlow()`.
 - Keep `lib/sim.ts` and `lib/layout.ts` free of DOM and React.
 - Theme: every colour is a CSS token with light and dark values (`app/globals.css`). `app/layout.tsx` has an inline script that applies the saved theme before paint; the engine re-reads colours when `data-theme` or the OS scheme changes. Canvas reads tokens in `Engine.readColors()`.
+
+## Rules for new UI text
+- Never hard-code user-facing strings. Add a key to `EN` and `VI` in `lib/i18n.ts`. Insight and Phong Thuy text must say "tradition, not engineering" where relevant and never score luck.
 
 ## Hard-won gotchas
 - SOR omega 1.95 diverges. Keep omega <= 1.8. More pressure iterations did not reduce residual divergence (it is structural), so keep iters ~16.

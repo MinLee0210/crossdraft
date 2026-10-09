@@ -74,3 +74,17 @@ export function decodeCell(t: number): { type: number; fdir: number } {
   if (t >= 10) return { type: T_FAN, fdir: (t - 10) & 7 };
   return { type: t <= 4 ? t : 0, fdir: 0 };
 }
+
+const b64url = (str: string): string => btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64url = (b: string): string => atob(b.replace(/-/g, '+').replace(/_/g, '/'));
+
+/** URL fragment that carries a whole layout, e.g. `#l=eyJhcHAi...`. */
+export function toHash(l: Layout): string { return '#l=' + b64url(serialize(l)); }
+
+/** Reads a layout from a URL fragment. Returns null when there is none; throws a readable error when it is damaged. */
+export function fromHash(hash: string): Layout | null {
+  if (!hash.startsWith('#l=')) return null;
+  let json: string;
+  try { json = unb64url(hash.slice(3)); } catch { throw new Error('The share link is damaged.'); }
+  return deserialize(json);
+}

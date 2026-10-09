@@ -1,21 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from './I18n';
 
 type Theme = 'light' | 'dark';
 const KEY = 'crossdraft.theme';
 
 export function ThemeToggle() {
   // null until mounted, so server and client render the same markup
+  const t = useT();
   const [theme, setTheme] = useState<Theme | null>(null);
 
   useEffect(() => {
-    let t: Theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    let th: Theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     try {
       const saved = localStorage.getItem(KEY);
-      if (saved === 'light' || saved === 'dark') t = saved;
+      if (saved === 'light' || saved === 'dark') th = saved;
     } catch { /* storage unavailable */ }
-    setTheme(t);
+    setTheme(th);
   }, []);
 
   const toggle = () => {
@@ -28,7 +30,7 @@ export function ThemeToggle() {
   const dark = theme === 'dark';
   return (
     <button type="button" className="btn icon" onClick={toggle} disabled={theme === null}
-      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} title={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
+      aria-label={dark ? t('theme.toLight') : t('theme.toDark')} title={dark ? t('theme.toLight') : t('theme.toDark')}>
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {dark ? (
           <>{/* sun: shown in dark mode, click for light */}
