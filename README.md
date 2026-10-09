@@ -45,6 +45,7 @@ npm run build        # static export to out/
 Serve that folder from GitHub Pages, Cloudflare Pages, Netlify or Vercel.
 
 ## How it works
+The full explanation, with the equations and the limits, is in [docs/ALGORITHMS.md](docs/ALGORITHMS.md). In short:
 - Incompressible "stable fluids" solver (Stam) on a padded grid: advect, project (SOR pressure solve), advect scalars.
 - Scalars: fresh air (tracer), air age, temperature. Section view adds Boussinesq buoyancy.
 - Walls are solid cells; openings are fluid cells that also split rooms for metrics.
@@ -54,9 +55,6 @@ Serve that folder from GitHub Pages, Cloudflare Pages, Netlify or Vercel.
 - 2D only. A plan has no flow over the roof, so indoor speeds and deflection are overstated.
 - Use it to compare layouts, not to certify them. For real accuracy use OpenFOAM or similar.
 - Layouts are saved in your browser only (localStorage).
-
-## Fonts
-Inter and JetBrains Mono, both under the SIL Open Font License 1.1, loaded through `next/font` (self-hosted at build time).
 
 ## License
 See `LICENSE`.
