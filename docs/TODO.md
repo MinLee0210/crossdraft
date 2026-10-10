@@ -13,8 +13,18 @@ Next steps, in order. Longer-term direction is in `docs/ROADMAPS.md`; shipped wo
 - [x] Detect "front door aligned with back door/window" (`lib/phongthuy.ts`) and mark it with a dashed line; opt-in "Phong Thuy checks" overlay.
 - [ ] Measure and show: through-flow speed at the entrance (done: mean speed along the aligned line) and how long air lingers near it (air age in an entrance zone, not done).
 - [x] Tool: screen / plant / curtain as a porous obstacle (cell type 5, quadratic drag `SCREEN_K`, key 9 is now Erase and 8 is Screen). Door-alignment check flags a screen on the line, and there is an "Aligned windows with a screen" example for A/B tests. Loss coefficient is plausible, not measured.
-- [ ] "Tradition vs. physics" panel with sources and a clear "belief, not engineering" label. No luck score. (A first version appears per detected alignment; it covers only the door-alignment rule and has no source links yet.)
+- [x] Closed rule list (`lib/fengshui.ts`): four airflow rules (front-to-back line, entrance buffer, wind and openings, stagnant air), each shown with a status, what tradition says, and what the simulation measured. A "not checked" list names what Crossdraft does not cover. No luck score; tests fail if luck, wealth or health words appear in the text.
+- [ ] Source links for the tradition statements in the feng shui panel (currently unreferenced, from the research notes in `docs/ROADMAPS.md`).
 - [ ] Decide: separate page or a toggle? (see ROADMAPS open questions)
+
+## Later: "Explain with AI" (OpenRouter free tier)
+Decision: consider later. The rule list above is the closed input and guardrail for it. Evaluation so far (see `docs/ROADMAPS.md`, "Explain with AI"):
+- [ ] Browser test first: does `openrouter.ai/api/v1` accept calls straight from the browser (CORS), does the "Sign in with OpenRouter" PKCE login work from a static page, and can the free model list be fetched?
+- [ ] Bake-off: run 5 sample layouts through 3-4 current `:free` models, in English and Vietnamese, and pick by how well they follow the closed rules (no invented doctrine, no luck claims).
+- [ ] Button "Explain with AI (free)": PKCE login so each visitor uses their own free quota (shared key is not viable: ~20 requests/min and ~50/day per account without a $10 purchase). Key kept in local storage.
+- [ ] Send only the structured payload (rule results, room stats, wind, sweep summary), no address or personal data; ask for no data collection; show a privacy note.
+- [ ] Guardrails: closed rule list in the prompt, short answer, "AI-generated, tradition not engineering" label, word check on the reply with fallback to the template text, cache by input hash, friendly message when the daily limit is hit, fall back to another model when one disappears.
+- [ ] Re-check OpenRouter's current limits and privacy terms on its own site before building (figures came from secondary sources).
 
 ## Quality (needed before promoting widely)
 - [x] GitHub Actions: typecheck, test, build on every push.

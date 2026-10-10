@@ -17,7 +17,7 @@ A static Next.js (App Router, TypeScript) site with no backend. Indicative 2D ai
 - Screen / plant / curtain tool (air passes but slows), to test remedies such as a bình phong
 - Plain-language insights per room ("R2 stays stale: only one opening")
 - Typical Vietnamese wind presets (monsoon and summer breeze), clearly labelled as not site data
-- Opt-in feng shui check (Phong Thuy in Vietnamese): marks a front door lined up with a back door and shows the air along it (tradition vs. physics, no luck score)
+- Opt-in feng shui checks (Phong Thuy in Vietnamese): a closed list of four airflow rules (front-to-back line, entrance buffer, wind and openings, stagnant air), each with what tradition says next to what the simulation measured. No luck score, and it lists what it does not check
 - Share a design with a link (the layout is stored in the URL)
 - English and Vietnamese UI (the Vietnamese text still needs a native-speaker review)
 - Light and dark theme (sun/moon switch in the header, follows the OS by default)

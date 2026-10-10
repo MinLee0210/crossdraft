@@ -11,6 +11,7 @@ Crossdraft: Next.js (App Router, TypeScript) static site, a 2D airflow sketchpad
 - `lib/sim.ts`: pure solver, no DOM. Class `Sim`, plus `fanJetCells` (which cells a fan drives).
 - `lib/layout.ts`: layout-code format (`rle`, `serialize`, strict `deserialize`). Pure.
 - `lib/edit.ts`, `lib/presets.ts`, `lib/tools.ts`: drawing helpers, example layouts (each with a `note`), tool metadata.
+- `lib/fengshui.ts`: the CLOSED list of feng shui rules (`FS_RULES`) and the not-checked list (`FS_NOT_CHECKED`); `evaluateFengShui`. Adding a rule means: a new id, result keys, `fs.<id>.title|tradition|physics` in both languages, and tests. Rules must be about airflow measured on the plan, never luck, wealth or health (a test scans the text).
 - `lib/openings.ts`, `lib/insights.ts`, `lib/phongthuy.ts`, `lib/winds.ts`: opening detection, plain-language room insights, door-alignment check, typical wind presets. All pure.
 - `lib/i18n.ts`: `EN` (source of truth) and `VI` dictionaries plus `translate(lang, key, vars)`. Components use `useT()`; the engine uses its own `t`. Every key must exist in both languages; `tests/i18n.test.ts` enforces it.
 - `lib/sweep.ts`: `Sweep` runs a layout against 8 or 16 wind directions on its own `Sim`, time-sliced via `advance(budgetMs)`; `summarise`. Pure. The engine drops results (`dropSweep`) whenever the drawing changes.

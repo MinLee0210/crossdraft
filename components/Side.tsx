@@ -92,26 +92,32 @@ function Overlays({ engine, ui }: Props) {
   );
 }
 
-/* ------------------------------------------------------------ phong thuy */
-function PhongThuy({ ui }: Pick<Props, 'ui'>) {
+/* ------------------------------------------------------------ feng shui */
+const FS_MARK = { ok: '✓', attention: '!', info: 'i' } as const;
+
+function FengShui({ ui }: Pick<Props, 'ui'>) {
   const t = useT();
   if (!ui.phongThuy) return null;
+  const fs = ui.fengShui;
   return (
     <section className="blk">
-      <h2>{t('pt.title')}</h2>
-      <p className="note"><b>{t('pt.disclaimer')}</b></p>
-      {ui.alignments.length === 0 && <p className="note">{t('pt.none')}</p>}
-      {ui.alignments.map((a, i) => {
-        const room = ui.stats.find((r) => r.id === a.room)?.name ?? '';
-        return (
-          <div key={i} className="ptcard">
-            <p className="note"><b>{t('pt.found', { room, len: fmt(a.length, 1), speed: fmt(a.speed, 1) })}</b></p>
-            <p className="note">{t('pt.tradition')}</p>
-            <p className="note">{t('pt.physics')}</p>
-            {a.screened && <p className="note"><b>{t('pt.screened', { speed: fmt(a.speed, 1) })}</b></p>}
-          </div>
-        );
-      })}
+      <h2>{t('fs.title')}</h2>
+      <p className="note"><b>{t('fs.disclaimer', { n: 4 })}</b></p>
+      {!fs && <p className="note">{ui.mode === 'section' ? t('fs.needPlan') : t('fs.noRooms')}</p>}
+      {fs && fs.rules.map((r) => (
+        <details key={r.id} className={'fsrule fs-' + r.status} open={r.status === 'attention'}>
+          <summary><span className="fsmark" aria-hidden="true">{FS_MARK[r.status]}</span><span className="fstitle">{t(`fs.${r.id}.title`)}</span><span className="fsstat">{t('fs.status.' + r.status)}</span></summary>
+          <p className="note"><b>{t(r.key, r.vars)}</b></p>
+          <p className="note">{t(`fs.${r.id}.tradition`)}</p>
+          <p className="note">{t(`fs.${r.id}.physics`)}</p>
+        </details>
+      ))}
+      {fs && (
+        <details className="fsrule">
+          <summary><span className="fstitle">{t('fs.nc.title')}</span></summary>
+          <ul className="fsnc">{fs.notChecked.map((id) => <li key={id}>{t(`fs.nc.${id}`)}</li>)}</ul>
+        </details>
+      )}
     </section>
   );
 }
@@ -373,7 +379,7 @@ export function Side({ engine, ui }: Props) {
     <aside className="side">
       <Wind engine={engine} ui={ui} />
       <Overlays engine={engine} ui={ui} />
-      <PhongThuy ui={ui} />
+      <FengShui ui={ui} />
       <Rooms ui={ui} />
       <Sweep engine={engine} ui={ui} />
       <Compare engine={engine} ui={ui} />

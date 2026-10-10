@@ -162,3 +162,12 @@ a.btn{text-decoration:none;color:inherit}
 .rose g:hover .wedge{stroke:var(--ink)}
 tr.clickrow{cursor:pointer}
 tr.clickrow:hover td{background:var(--accent-soft)}
+.fsrule{border:1px solid var(--line);border-radius:8px;background:var(--panel);padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.fsrule>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;font-size:13px;font-weight:600}
+.fsrule>summary::-webkit-details-marker{display:none}
+.fsrule .fstitle{flex:1;min-width:0}
+.fsrule .fsstat{font:500 11px var(--mono);color:var(--muted)}
+.fsmark{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 12px var(--mono);border:1.5px solid var(--muted);color:var(--muted);flex:none}
+.fs-ok .fsmark{border-color:var(--good);color:var(--good)}
+.fs-attention .fsmark{border-color:var(--warn);color:var(--warn)}
+.fsnc{margin:0;padding-left:18px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px}

@@ -2,6 +2,7 @@ import { arrowOf, clamp, fmt, pct } from './format';
 import { translate, type Lang } from './i18n';
 import { insights as makeInsights, type Insight } from './insights';
 import { decodeCell, deserialize, encodeCell, fromHash, serialize, toHash, type Layout } from './layout';
+import { evaluateFengShui, type FsResult } from './fengshui';
 import { detectAlignments, type Alignment } from './phongthuy';
 import { Sweep, type SweepRow } from './sweep';
 import { clampCell, inb, isShape, line4, put, shapeCells, stamp, type Pt, type Shape, type Tool } from './edit';
@@ -29,6 +30,7 @@ export interface UiState {
   cmpMsg: string; codeMsg: string; codeText: string; shareMsg: string;
   status: string; legend: { min: string; max: string };
   lang: Lang; phongThuy: boolean; insights: Insight[]; alignments: Alignment[];
+  fengShui: FsResult | null;
   sweepCount: 8 | 16; sweepSec: number; sweepMsg: string;
   sweep: { progress: number; index: number; total: number; deg: number } | null;
   sweepResult: { rows: SweepRow[]; speed: number; seconds: number } | null;
@@ -89,6 +91,7 @@ export class Engine {
   private cmpMsg = ''; private codeMsg = ''; private codeText = ''; private shareMsg = ''; private shareTimer: ReturnType<typeof setTimeout> | undefined;
   private lang: Lang = 'en'; private phongThuy = false;
   private insightList: Insight[] = []; private aligns: Alignment[] = [];
+  private fengShui: FsResult | null = null;
   private sweepCount: 8 | 16 = 8; private sweepSec = 60; private sweepMsg = '';
   private sweepRun: { sweep: Sweep; wasRunning: boolean } | null = null;
   private sweepResult: { rows: SweepRow[]; speed: number; seconds: number } | null = null;
@@ -140,7 +143,7 @@ export class Engine {
       test: this.test ? { slot: this.test.slot, T: this.test.T } : null,
       slots: this.slots, cmpMsg: this.cmpMsg, codeMsg: this.codeMsg, codeText: this.codeText, shareMsg: this.shareMsg,
       lang: this.lang, phongThuy: this.phongThuy, insights: this.insightList, alignments: this.aligns,
-      sweepCount: this.sweepCount, sweepSec: this.sweepSec, sweepMsg: this.sweepMsg,
+      fengShui: this.fengShui, sweepCount: this.sweepCount, sweepSec: this.sweepSec, sweepMsg: this.sweepMsg,
       sweep: this.sweepRun ? { progress: this.sweepRun.sweep.progress, index: this.sweepRun.sweep.current, total: this.sweepRun.sweep.dirs.length, deg: this.sweepRun.sweep.dirs[this.sweepRun.sweep.current] } : null,
       sweepResult: this.sweepResult,
       status: this.statusText(), legend: this.legendText(), rev: ++this.rev
@@ -533,7 +536,8 @@ export class Engine {
     this.stats = s.roomStats(this.deadThr);
     this.insightList = s.dirty ? (this.stats.length ? [{ key: 'insight.dirty', vars: {}, tone: 'info' }] : [])
       : makeInsights(s, this.stats, !this.test && s.t >= 40);
-    this.aligns = this.phongThuy ? detectAlignments(s) : [];
+    this.aligns = this.phongThuy && s.mode === 'plan' ? detectAlignments(s) : [];
+    this.fengShui = this.phongThuy ? evaluateFengShui(s, this.stats, this.aligns, !s.dirty && s.t >= 40 && !this.test && !this.sweepRun) : null;
     this.drawLegend(); this.emit();
   }
   private statusText(): string {

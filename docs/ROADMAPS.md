@@ -67,6 +67,16 @@ Goal: a student can open the link, load a familiar house, and understand why the
 - Validation page with benchmark cases and shown error
 - Optional "pro run" to a real CFD backend
 
+## Explain with AI (later, OpenRouter free tier)
+Idea: feed the simulation results (wind, heat, room stats, rule results, sweep) to a free LLM and show a short written feng shui evaluation. Status: **deferred**; the deterministic rule list in `lib/fengshui.ts` comes first and defines what the model would receive.
+
+What the research found (check again before building; several figures are from secondary sources):
+- OpenRouter `:free` models are limited to about 20 requests a minute, and about 50 a day per account (about 1,000 a day once $10 of credit has been bought). Limits are per account, not per key.
+- A static site cannot hide a shared key, and a shared key would exhaust the daily limit quickly. "Sign in with OpenRouter" (OAuth PKCE) lets each visitor use their own key and quota with no backend. It costs visitors an account.
+- Not confirmed: browser (CORS) access to the API, and Vietnamese quality of the free models.
+- Free routes may log prompts or train on them, depending on the provider. Send only anonymous structured numbers and ask for no data collection.
+- Weaker models can invent feng shui doctrine and make luck claims. Mitigation: the closed rule list in the prompt, a short answer, a word check with fallback to the template text, and an "AI-generated, tradition not engineering" label.
+
 ## Risks
 - **Over-claiming:** Phong Thuy plus a score invites "the app says my house is lucky". Mitigation: no luck score, clear labels, keep "indicative, not CFD".
 - **Physics limits:** 2D, no roof flow, indoor speeds overstated. Fine for teaching, must stay visible.
