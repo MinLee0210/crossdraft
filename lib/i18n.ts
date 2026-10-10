@@ -14,9 +14,26 @@ for (const [id, name] of VIEWS) generated[`view.${id}`] = name;
 
 export const EN: Dict = {
   ...generated,
+  'probe.screen': 'screen',
+  'opt.screen': 'Air passes through a screen but slows down. Use it for a plant, a curtain or a partition.',
+  'pt.screened': 'A screen sits on this line, so the air along it is slowed: {speed} m/s. Use Test into A and B to compare with and without it.',
+  'sweep.title': 'Wind-direction sweep',
+  'sweep.hint': 'Tests this layout against wind from every direction at the current wind speed, then ranks the directions. It runs in the background and takes about a minute.',
+  'sweep.dirs': 'Directions', 'sweep.len': 'Length per direction', 'sweep.run': 'Run sweep',
+  'sweep.running': 'Direction {i} of {n}: wind from {dir}',
+  'sweep.needPlan': 'The sweep works in Plan view. In Section only the west and east wind matters.',
+  'sweep.needWind': 'Set a wind speed above 0.3 m/s first.',
+  'sweep.roseLabel': 'Wind rose: score by the direction the wind comes from',
+  'sweep.summary': 'Best: wind from {best} ({bs}). Worst: {worst} ({ws}). Spread: {spread} points.',
+  'sweep.sensitive': 'The score changes a lot with wind direction, so this layout depends on where the wind comes from.',
+  'sweep.robust': 'The score barely changes with wind direction: this layout is robust.',
+  'sweep.from': 'From',
+  'sweep.note': 'Each direction ran for {sec} s at {speed} m/s. Click a wedge or a row to set that wind. Results are cleared when you edit the layout.',
+
   'app.tagline': 'Airflow sketchpad. Indicative 2D, not CFD.',
   'mode.view': 'View', 'mode.plan': 'Plan', 'mode.plan.sub': 'top-down, wind only', 'mode.section': 'Section', 'mode.section.sub': 'side view, heat rises',
   'theme.toLight': 'Switch to light mode', 'theme.toDark': 'Switch to dark mode', 'lang.label': 'Language',
+  'github.label': 'View the project on GitHub',
   'share.button': 'Share link', 'share.copied': 'Link copied', 'share.inUrl': 'Link is in the address bar',
 
   'tools.label': 'Drawing tools', 'canvas.label': 'Floor plan with simulated airflow',
@@ -92,6 +109,25 @@ export const EN: Dict = {
 
 /* Vietnamese. Please have a native speaker review before wider release. */
 export const VI: Dict = {
+
+  'tool.screen.name': 'Bình phong', 'tool.screen.tip': 'Bình phong, cây hoặc rèm: gió vẫn lọt qua nhưng chậm lại',
+  'preset.screen.name': 'Hai cửa sổ thẳng hàng, có bình phong',
+  'preset.screen.note': 'Hai cửa sổ đối diện nhau nên gió chạy thẳng xuyên nhà (đường cửa chính thẳng cửa sau quen thuộc). Bình phong ở giữa làm gió chậm lại. Hãy Test vào A, xóa bình phong bằng công cụ Xóa, rồi Test vào B và so sánh.',
+  'probe.screen': 'bình phong',
+  'opt.screen': 'Gió vẫn lọt qua bình phong nhưng chậm lại. Dùng để thử chậu cây, rèm hoặc vách ngăn.',
+  'pt.screened': 'Có bình phong nằm trên đường này nên gió dọc theo nó bị chậm lại: {speed} m/s. Dùng Test vào A và B để so sánh khi có và không có nó.',
+  'sweep.title': 'Quét hướng gió',
+  'sweep.hint': 'Thử bản vẽ này với gió từ mọi hướng ở tốc độ gió hiện tại, rồi xếp hạng các hướng. Chạy nền và mất khoảng một phút.',
+  'sweep.dirs': 'Số hướng', 'sweep.len': 'Thời gian mỗi hướng', 'sweep.run': 'Chạy quét',
+  'sweep.running': 'Hướng {i}/{n}: gió từ {dir}',
+  'sweep.needPlan': 'Chức năng quét chỉ dùng ở Mặt bằng. Ở Mặt cắt chỉ có gió tây và đông có tác dụng.',
+  'sweep.needWind': 'Hãy đặt tốc độ gió trên 0,3 m/s trước.',
+  'sweep.roseLabel': 'Hoa gió: điểm theo hướng gió thổi đến',
+  'sweep.summary': 'Tốt nhất: gió từ {best} ({bs}). Kém nhất: {worst} ({ws}). Chênh lệch: {spread} điểm.',
+  'sweep.sensitive': 'Điểm thay đổi nhiều theo hướng gió, nên bản vẽ này phụ thuộc vào hướng gió thổi đến.',
+  'sweep.robust': 'Điểm gần như không đổi theo hướng gió: bản vẽ này ổn định.',
+  'sweep.from': 'Từ',
+  'sweep.note': 'Mỗi hướng chạy {sec} giây ở {speed} m/s. Nhấn vào một cánh hoặc một hàng để đặt hướng gió đó. Kết quả bị xóa khi bạn sửa bản vẽ.',
   'preset.studio.name': 'Studio thông gió xuyên phòng', 'preset.studio.note': 'Hai cửa sổ đối diện nhau nên gió đi thẳng qua phòng. Đây là mẫu chuẩn để so sánh.',
   'preset.tworooms.name': 'Hai phòng và một cửa đi', 'preset.tworooms.note': 'Gió chỉ sang phòng thứ hai qua cửa nhỏ. Hãy so sánh độ tươi của không khí giữa R1 và R2.',
   'preset.sameside.name': 'Cửa sổ chỉ ở một phía', 'preset.sameside.note': 'Cả hai cửa sổ nằm trên cùng một bức tường nên gió gần như không vào được. So sánh với studio.',
@@ -118,6 +154,7 @@ export const VI: Dict = {
   'app.tagline': 'Bảng phác thảo luồng gió. Mô phỏng 2D mang tính tham khảo, không phải CFD.',
   'mode.view': 'Chế độ xem', 'mode.plan': 'Mặt bằng', 'mode.plan.sub': 'nhìn từ trên, chỉ có gió', 'mode.section': 'Mặt cắt', 'mode.section.sub': 'nhìn ngang, khí nóng bay lên',
   'theme.toLight': 'Chuyển sang giao diện sáng', 'theme.toDark': 'Chuyển sang giao diện tối', 'lang.label': 'Ngôn ngữ',
+  'github.label': 'Xem dự án trên GitHub',
   'share.button': 'Chia sẻ liên kết', 'share.copied': 'Đã sao chép liên kết', 'share.inUrl': 'Liên kết nằm trên thanh địa chỉ',
 
   'tools.label': 'Công cụ vẽ', 'canvas.label': 'Mặt bằng với luồng gió mô phỏng',

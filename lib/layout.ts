@@ -1,7 +1,7 @@
 import { clamp } from './format';
 import { T_FAN, type Mode } from './sim';
 
-/** A drawing, independent of the solver. `types` holds one byte per cell: 0-4 cell type, 10+d fan facing d (0-7). */
+/** A drawing, independent of the solver. `types` holds one byte per cell: 0-5 cell type, 10+d fan facing d (0-7). */
 export interface Layout {
   mode: Mode;
   W: number;
@@ -36,7 +36,7 @@ export function unrle(str: string, n: number): Uint8Array {
     const p = tok.split('*');
     const v = Number(p[0]), c = p[1] === undefined ? 1 : Number(p[1]);
     if (!Number.isInteger(v) || !Number.isInteger(c) || c < 1) throw new Error('bad token "' + tok + '"');
-    const ok = (v >= 0 && v <= 4) || (v >= 10 && v <= 17);
+    const ok = (v >= 0 && v <= 5) || (v >= 10 && v <= 17);
     if (!ok) throw new Error('unknown cell value ' + v);
     if (k + c > n) throw new Error('layout is larger than its grid');
     a.fill(v, k, k + c);
@@ -72,7 +72,7 @@ export const encodeCell = (type: number, fdir: number): number => (type === T_FA
 /** Inverse of encodeCell. Unknown values decode to empty. */
 export function decodeCell(t: number): { type: number; fdir: number } {
   if (t >= 10) return { type: T_FAN, fdir: (t - 10) & 7 };
-  return { type: t <= 4 ? t : 0, fdir: 0 };
+  return { type: t <= 5 ? t : 0, fdir: 0 };
 }
 
 const b64url = (str: string): string => btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

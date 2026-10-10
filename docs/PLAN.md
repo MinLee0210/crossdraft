@@ -51,3 +51,7 @@ Rewritten as a Next.js (App Router, TypeScript) static site with vitest tests fo
 - 2026-10: rewrite to Next.js static export (`output: 'export'`) to get components, typed modules and testable layout code; still no backend
 - 2026-10: solver, layout codes and UI split into `lib/` (pure) and `components/` (React); the canvas engine stays imperative and React reads snapshots via `useSyncExternalStore`
 - 2026-10: layout-code `deserialize` is strict (version, wind, cell values, exact length) instead of silently padding
+- 2026-10: diagonal fans were 3-5x weaker than east/south/west/north ones (jet cells touched only at corners, so projection cancelled them). Two upstream bridge cells now make the jet 4-connected; all 8 directions give the same jet. Found by the new per-direction fan tests.
+- 2026-10: solver tests split by file and the heat-gain test moved to a smaller grid: suite ~125 s to ~45 s
+- 2026-10: screens are porous cells with quadratic drag rather than thin solid walls, so they slow air instead of stopping it; needed to model feng shui remedies honestly
+- 2026-10: wind sweep runs time-sliced on the main thread instead of a Web Worker (simpler to ship; revisit if it feels sluggish)

@@ -6,7 +6,9 @@ import { beaufort, compass, fmt, pct } from '@/lib/format';
 import { PRESETS } from '@/lib/presets';
 import { GRIDS, type GridKey } from '@/lib/tools';
 import { WIND_PRESETS } from '@/lib/winds';
+import { summarise } from '@/lib/sweep';
 import { useT } from './I18n';
+import { WindRose } from './WindRose';
 
 interface Props { engine: Engine; ui: UiState }
 
@@ -106,9 +108,67 @@ function PhongThuy({ ui }: Pick<Props, 'ui'>) {
             <p className="note"><b>{t('pt.found', { room, len: fmt(a.length, 1), speed: fmt(a.speed, 1) })}</b></p>
             <p className="note">{t('pt.tradition')}</p>
             <p className="note">{t('pt.physics')}</p>
+            {a.screened && <p className="note"><b>{t('pt.screened', { speed: fmt(a.speed, 1) })}</b></p>}
           </div>
         );
       })}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ sweep */
+const SWEEP_SECONDS = [30, 60, 120];
+
+function Sweep({ engine, ui }: Props) {
+  const t = useT();
+  const res = ui.sweepResult, sum = res ? summarise(res.rows) : null;
+  const label = (r: { deg: number }) => `${compass(r.deg)} ${Math.round(r.deg)}°`;
+  const ranked = res ? [...res.rows].filter((r) => r.score).sort((a, b) => b.score!.score - a.score!.score) : [];
+  return (
+    <section className="blk">
+      <h2>{t('sweep.title')}</h2>
+      <p className="hint">{t('sweep.hint')}</p>
+      <div className="row2">
+        <label className="fld"><span>{t('sweep.dirs')}</span>
+          <select value={ui.sweepCount} disabled={!!ui.sweep} onChange={(e) => engine.setSweepOptions(+e.target.value as 8 | 16, ui.sweepSec)}>
+            <option value={8}>8</option><option value={16}>16</option></select></label>
+        <label className="fld"><span>{t('sweep.len')}</span>
+          <select value={ui.sweepSec} disabled={!!ui.sweep} onChange={(e) => engine.setSweepOptions(ui.sweepCount, +e.target.value)}>
+            {SWEEP_SECONDS.map((v) => <option key={v} value={v}>{v} s</option>)}</select></label>
+      </div>
+      {ui.sweep ? (
+        <div>
+          <div className="bar"><i style={{ width: (ui.sweep.progress * 100).toFixed(1) + '%' }} /></div>
+          <div className="btnrow" style={{ marginTop: 6, alignItems: 'center' }}>
+            <span className="note">{t('sweep.running', { i: ui.sweep.index + 1, n: ui.sweep.total, dir: label({ deg: ui.sweep.deg }) })}</span>
+            <button type="button" className="btn sm" onClick={engine.cancelSweep}>{t('cmp.cancel')}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="btnrow"><button type="button" className="btn sm" onClick={engine.startSweep}>{t('sweep.run')}</button></div>
+      )}
+      {ui.sweepMsg && <p className="note">{ui.sweepMsg}</p>}
+      {res && sum && (
+        <>
+          <WindRose rows={res.rows} onPick={(deg) => engine.setWind(res.speed, deg)} />
+          <p className="note"><b>{t('sweep.summary', { best: label(sum.best), bs: sum.best.score!.score, worst: label(sum.worst), ws: sum.worst.score!.score, spread: sum.spread })}</b></p>
+          {sum.spread >= 25 && <p className="note">{t('sweep.sensitive')}</p>}
+          {sum.spread < 10 && <p className="note">{t('sweep.robust')}</p>}
+          <div className="tablewrap">
+            <table className="m">
+              <thead><tr><th>{t('sweep.from')}</th><th>{t('cmp.score')}</th><th>{t('tbl.fresh')}</th><th>{t('tbl.dead')}</th></tr></thead>
+              <tbody>
+                {ranked.map((r) => (
+                  <tr key={r.deg} className="clickrow" onClick={() => engine.setWind(res.speed, r.deg)}>
+                    <td>{label(r)}</td><td>{r.score!.score}</td><td>{pct(r.score!.flush)}</td><td>{pct(r.score!.dead)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="hint">{t('sweep.note', { speed: fmt(res.speed, 1), sec: res.seconds })}</p>
+        </>
+      )}
     </section>
   );
 }
@@ -315,6 +375,7 @@ export function Side({ engine, ui }: Props) {
       <Overlays engine={engine} ui={ui} />
       <PhongThuy ui={ui} />
       <Rooms ui={ui} />
+      <Sweep engine={engine} ui={ui} />
       <Compare engine={engine} ui={ui} />
       <Layouts engine={engine} ui={ui} />
       <Physics engine={engine} ui={ui} />

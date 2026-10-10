@@ -1,6 +1,6 @@
 import { put } from './edit';
 import { inb } from './edit';
-import { T_FAN, T_HEAT, T_OPEN, T_WALL, type Mode, type Sim } from './sim';
+import { T_FAN, T_HEAT, T_OPEN, T_SCREEN, T_WALL, type Mode, type Sim } from './sim';
 
 export interface Preset { id: string; name: string; note: string; speed: number; deg: number; build(sim: Sim): void }
 
@@ -40,6 +40,11 @@ export const PRESETS: Record<Mode, Preset[]> = {
       for (let xx = b.x + 30; xx <= b.x + 59; xx++) put(s, xx, b.y + 20, T_WALL);
       cut(s, b.x, b.y + 6, b.x, b.y + 13); cut(s, b.x, b.y + 26, b.x, b.y + 33); // balcony windows (west only)
       cut(s, b.x + 30, b.y + 8, b.x + 30, b.y + 11); cut(s, b.x + 30, b.y + 28, b.x + 30, b.y + 31); // bedroom doors
+    } },
+    { id: 'screen', note: 'The two windows face each other, so air runs straight through (the classic front-door-to-back-door line). The screen in the middle slows it. Test into A, delete the screen with Erase, test into B, and compare.', name: 'Aligned windows with a screen', speed: 2, deg: 270, build(s) {
+      const b = planBase(s); rectO(s, b.x, b.y, b.x + 59, b.y + 39);
+      cut(s, b.x, b.y + 16, b.x, b.y + 23); cut(s, b.x + 59, b.y + 16, b.x + 59, b.y + 23);
+      for (let yy = b.y + 12; yy <= b.y + 27; yy++) put(s, b.x + 30, yy, T_SCREEN);
     } },
     { id: 'court', note: 'The north and south wings take air from the open courtyard and flush well. The east wing has a single opening and stays stale. Add a window to its east wall and test again.', name: 'Courtyard house', speed: 2, deg: 270, build(s) {
       const b = planBase(s);

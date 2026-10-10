@@ -1,7 +1,7 @@
 import { clamp } from './format';
 import { T_FAN, type Sim } from './sim';
 
-export type Tool = 'wall' | 'line' | 'box' | 'block' | 'open' | 'fan' | 'heat' | 'erase';
+export type Tool = 'wall' | 'line' | 'box' | 'block' | 'open' | 'fan' | 'heat' | 'screen' | 'erase';
 export interface Pt { x: number; y: number }
 
 export const inb = (sim: Sim, x: number, y: number): boolean => x >= 0 && y >= 0 && x < sim.W && y < sim.H;

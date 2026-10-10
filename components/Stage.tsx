@@ -23,8 +23,8 @@ const FAN_KEYS = ['east', 'southeast', 'south', 'southwest', 'west', 'northwest'
 function ToolOptions({ engine, ui }: Props) {
   const tr = useT();
   const t = ui.tool, h = ui.cellSize;
-  if (t === 'wall' || t === 'line' || t === 'box') {
-    return <><label>{tr('opt.thickness')} <Seg name={tr('opt.thickness')} items={[1, 2, 3]} cur={ui.brush.wall} onPick={(v) => engine.setBrush('wall', v)} /> <span className="mono">{fmt(ui.brush.wall * h, 2)} m</span></label></>;
+  if (t === 'wall' || t === 'line' || t === 'box' || t === 'screen') {
+    return <><label>{tr('opt.thickness')} <Seg name={tr('opt.thickness')} items={[1, 2, 3]} cur={ui.brush.wall} onPick={(v) => engine.setBrush('wall', v)} /> <span className="mono">{fmt(ui.brush.wall * h, 2)} m</span></label>{t === 'screen' && <span>{tr('opt.screen')}</span>}</>;
   }
   if (t === 'block') return <span>{tr('opt.block')}</span>;
   if (t === 'open') return <><label>{tr('opt.brush')} <Seg name={tr('opt.brush')} items={[1, 2, 3]} cur={ui.brush.open} onPick={(v) => engine.setBrush('open', v)} /></label><span>{tr('opt.open')}</span></>;

@@ -1,5 +1,5 @@
 import { findOpenings, type Opening } from './openings';
-import { T_WALL, type Sim } from './sim';
+import { T_SCREEN, T_WALL, type Sim } from './sim';
 
 /** Two exterior openings of the same room that face each other along a clear straight line. */
 export interface Alignment {
@@ -10,6 +10,8 @@ export interface Alignment {
   length: number;
   /** Mean air speed (m/s) sampled along the line. */
   speed: number;
+  /** True when a screen, plant or curtain sits on the line. */
+  screened: boolean;
 }
 
 const TOL = 2;       // cells of lateral offset still counted as "in line"
@@ -38,11 +40,12 @@ function check(sim: Sim, A: Opening, B: Opening, room: number): Alignment | null
   const inLine = (Math.abs(dy) <= TOL && Math.abs(dx) >= MIN_GAP) || (Math.abs(dx) <= TOL && Math.abs(dy) >= MIN_GAP);
   if (!inLine) return null;
   const steps = Math.ceil(Math.hypot(dx, dy));
-  let sum = 0, n = 0;
+  let sum = 0, n = 0, screened = false;
   for (let k = 0; k <= steps; k++) {
     const x = Math.round(A.cx + (dx * k) / steps), y = Math.round(A.cy + (dy * k) / steps), c = sim.idx(x, y);
     if (sim.cell[c] === T_WALL) return null; // a wall (or partition) blocks the line of sight
+    if (sim.cell[c] === T_SCREEN) screened = true;
     if (k > 2 && k < steps - 2) { sum += sim.spd[c]; n++; }
   }
-  return { a: { x: A.cx, y: A.cy }, b: { x: B.cx, y: B.cy }, room, length: Math.hypot(dx, dy) * sim.cellSize, speed: n ? sum / n : 0 };
+  return { a: { x: A.cx, y: A.cy }, b: { x: B.cx, y: B.cy }, room, length: Math.hypot(dx, dy) * sim.cellSize, speed: n ? sum / n : 0, screened };
 }

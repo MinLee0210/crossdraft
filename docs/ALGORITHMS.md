@@ -26,9 +26,10 @@ A "padded" grid: `W x H` real cells plus a one-cell **ghost ring** around them t
 
 ### 2.3 Forces
 - **Buoyancy (Section view only):** the Boussinesq approximation. Warm air is pushed up with `dv = -dt * 9.81/293 * temperature`. (Screen y points down, so minus is up.)
-- **Fans:** a three-cell-wide jet, with the velocity set directly to `fanSpeed` along one of eight directions.
+- **Fans:** a three-cell-wide jet (`fanJetCells`), with the velocity set directly to `fanSpeed` along one of eight directions. For the four diagonal directions two extra cells on the upstream side join the three into a 4-connected line, because cells that touch only at corners are mostly cancelled by the pressure projection.
 - **Vorticity confinement** (Fedkiw, Stam, Jensen, 2001): the semi-Lagrangian step smears out small eddies, so a small force `eps * (N x w)` pushes them back. `w` is the curl of the velocity, `N` the normalised gradient of `|w|`. It skips cells next to walls, otherwise it amplifies wall noise. The "Swirl boost" slider is `eps`.
 - **Heaters:** their cells are pinned at `heatDT` kelvin above ambient.
+- **Screens, plants, curtains (porous cells):** air may pass but is slowed by quadratic drag, `du/dt = -K |u| u / (2h)` with `K = SCREEN_K = 5`, applied implicitly (`u /= 1 + dt K |u| / 2h`) so it is stable. The projection then diverts part of the flow around the screen. In a test room, one cell of screen cut the speed along an aligned door line by about half and still let air through. `K` is plausible, not measured.
 
 ### 2.4 Advection (semi-Lagrangian)
 For each cell, trace backward along the velocity for one step and read the field at that spot: `x_old = x - dt/h * u`. The read uses **bilinear interpolation that ignores solid cells** and renormalises the remaining weights, so air never gets "dragged" out of a wall. If all four neighbours are solid it keeps the local value. This is unconditionally stable but adds some numerical blur.
@@ -57,6 +58,9 @@ Each of the four sides is one of: **inflow** (the side facing the wind, ghost ce
 - **Score:** `50 x flushed + 30 x (1 - dead zone) + 20 x comfort`, where comfort is 1 up to 0.3 m/s and falls linearly to 0 at 1.5 m/s.
 - **Insights** (`lib/insights.ts`): rules over those numbers and the openings: sealed room, one opening, openings that only lead to other rooms, many openings but little flow, a well-flushed room, large dead zones, no wind. Openings are found as connected groups of opening cells (`lib/openings.ts`) with the rooms they touch.
 - **Feng shui check** (`lib/phongthuy.ts`): looks at pairs of exterior openings of the same room that sit within 2 cells of one axis, at least 10 cells apart, with no wall along the straight line between them. It reports the mean air speed along that line. It detects geometry and measures air only. It does not score luck.
+
+### 3.1 Wind-direction sweep
+`Sweep` (`lib/sweep.ts`) copies the drawing into its own solver and, for each of 8 or 16 compass directions, resets the flow, runs for a fixed time at the current wind speed, and records the score. Results are ranked and drawn as a wind rose: one wedge per direction, longer and more opaque for a better score. It runs on the main thread in 14 ms slices per frame, so the page stays usable, but it takes about a minute. Results are discarded when the drawing changes. Short runs rank directions fairly because every direction gets the same time, but the scores are not settled values.
 
 ## 4. Drawing the flow
 - **Colour fields:** the chosen field (heat, fresh air, speed, air age) goes through a 256-entry colour ramp into an `ImageData` of `W x H` pixels, which the canvas scales up with smoothing. Ramps differ for light and dark themes.

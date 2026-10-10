@@ -13,6 +13,8 @@ A static Next.js (App Router, TypeScript) site with no backend. Indicative 2D ai
 - Per-room metrics: area, mean speed, dead-zone %, fresh-air %, temperature rise, time to 90% fresh, plus a 0-100 score
 - A/B tests: run a fixed-length test into slot A or B and compare layouts
 - Example layouts, layout code export/import, hover probe
+- Wind-direction sweep: tests the layout from 8 or 16 directions and draws a wind rose of scores
+- Screen / plant / curtain tool (air passes but slows), to test remedies such as a bình phong
 - Plain-language insights per room ("R2 stays stale: only one opening")
 - Typical Vietnamese wind presets (monsoon and summer breeze), clearly labelled as not site data
 - Opt-in feng shui check (Phong Thuy in Vietnamese): marks a front door lined up with a back door and shows the air along it (tradition vs. physics, no luck score)
@@ -28,7 +30,7 @@ npm run dev          # http://localhost:3000
 
 ## Develop
 ```bash
-npm test             # vitest: solver physics + layout-code tests (the solver suite takes ~2 min)
+npm test             # vitest: solver physics + layout-code tests (about 45 s, the solver suites run in parallel)
 npm run typecheck
 npm run build        # static export to out/
 ```

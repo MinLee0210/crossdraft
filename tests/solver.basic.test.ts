@@ -1,26 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Sim, T_FAN, T_HEAT, T_OPEN, T_WALL } from '../lib/sim';
-
-const finite = (s: Sim) => [s.u, s.v, s.fresh, s.age, s.temp, s.p].every((a) => a.every(Number.isFinite));
-
-function box(s: Sim, x0: number, y0: number, x1: number, y1: number) {
-  for (let x = x0; x <= x1; x++) { s.cell[s.idx(x, y0)] = T_WALL; s.cell[s.idx(x, y1)] = T_WALL; }
-  for (let y = y0; y <= y1; y++) { s.cell[s.idx(x0, y)] = T_WALL; s.cell[s.idx(x1, y)] = T_WALL; }
-}
-function open(s: Sim, x0: number, y0: number, x1: number, y1: number) {
-  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) s.cell[s.idx(x, y)] = T_OPEN;
-}
-function run(s: Sim, secs: number) { while (s.t < secs) s.step(s.suggestDt()); }
-
-type Kind = 'cross' | 'same' | 'sealed';
-function house(kind: Kind): Sim {
-  const s = new Sim(120, 80); s.setWind(3, 270);
-  box(s, 30, 20, 89, 59);
-  if (kind === 'cross') { open(s, 30, 26, 30, 33); open(s, 89, 46, 89, 53); }
-  if (kind === 'same') { open(s, 30, 26, 30, 33); open(s, 30, 46, 30, 53); }
-  s.rebuild(); s.resetFlow();
-  return s;
-}
+import { Sim, T_FAN, T_HEAT, T_WALL } from '../lib/sim';
+import { box, finite, house, open, run } from './helpers';
 
 describe('solver', () => {
   it('keeps a free stream at the wind speed', () => {
@@ -31,24 +11,6 @@ describe('solver', () => {
     expect(finite(s)).toBe(true);
     expect(Math.abs(mu / n - 3)).toBeLessThan(0.05);
     expect(mv / n).toBeLessThan(0.02);
-  });
-
-  describe('houses', () => {
-    const res: Record<string, ReturnType<typeof Sim.score>> = {};
-    for (const k of ['cross', 'same', 'sealed'] as Kind[]) {
-      it(`stays finite and bounded: ${k}`, () => {
-        const s = house(k); run(s, 120);
-        res[k] = Sim.score(s.roomStats(0.1));
-        expect(finite(s)).toBe(true);
-        expect(s.maxV).toBeLessThan(12);
-      });
-    }
-    it('ranks cross > same >= sealed', () => {
-      expect(res.cross!.flush).toBeGreaterThan(res.same!.flush);
-      expect(res.same!.flush).toBeGreaterThan(res.sealed!.flush - 0.001);
-      expect(res.cross!.score).toBeGreaterThan(res.sealed!.score);
-      expect(res.sealed!.flush).toBeLessThan(0.02);
-    });
   });
 
   it('pushes air through openings, makes a wake, keeps a sealed interior still', () => {
@@ -78,15 +40,6 @@ describe('solver', () => {
     expect(Sim.score(s.roomStats(0.1))!.flush).toBeGreaterThan(0.05);
   });
 
-  it('a fan makes a jet', () => {
-    const s = new Sim(120, 80); s.setWind(0, 270);
-    box(s, 30, 20, 89, 59); s.rebuild();
-    s.cell[s.idx(40, 40)] = T_FAN; s.fdir[s.idx(40, 40)] = 0; s.rebuild(); s.resetFlow();
-    run(s, 5);
-    expect(finite(s)).toBe(true);
-    expect(s.u[s.idx(46, 40)]).toBeGreaterThan(0.3);
-  });
-
   it('keeps divergence small', () => {
     const s = house('cross'); run(s, 10);
     let sum = 0, n = 0;
@@ -107,23 +60,30 @@ describe('solver', () => {
     expect(s.v[c]).toBeLessThan(-1);
   });
 
-  it('plan heat gain: worse ventilation means a warmer room', () => {
-    const t: Record<string, number> = {};
-    for (const k of ['cross', 'same', 'sealed'] as Kind[]) { const s = house(k); run(s, 240); t[k] = s.roomStats(0.1)[0].temp; }
-    expect(t.sealed).toBeGreaterThan(t.same);
-    expect(t.same).toBeGreaterThan(t.cross);
-    expect(t.sealed).toBeGreaterThan(0.8);
-    expect(t.sealed).toBeLessThan(6);
-  });
-
   it('labels rooms, outside and tiny pockets', () => {
     const s = new Sim(60, 40); s.setWind(2, 270);
-    box(s, 10, 10, 30, 25); // 19x14 interior room
+    box(s, 10, 10, 30, 25);
     s.cell[s.idx(40, 20)] = T_WALL; s.cell[s.idx(42, 20)] = T_WALL; s.cell[s.idx(41, 19)] = T_WALL; s.cell[s.idx(41, 21)] = T_WALL; // 1-cell pocket
     s.rebuild();
     expect(s.rooms).toHaveLength(1);
     expect(s.labels[s.idx(20, 17)]).toBe(1);
     expect(s.labels[s.idx(2, 2)]).toBe(-1);
     expect(s.labels[s.idx(41, 20)]).toBe(-3);
+  });
+});
+
+describe('fans', () => {
+  // E, SE, S, SW, W, NW, N, NE in screen coordinates (y down)
+  const DIRS: [number, number][] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+  DIRS.forEach(([dx, dy], d) => {
+    it(`direction ${d} blows towards (${dx}, ${dy})`, () => {
+      const s = new Sim(80, 50); s.setWind(0, 270);
+      s.cell[s.idx(40, 25)] = T_FAN; s.fdir[s.idx(40, 25)] = d;
+      s.rebuild(); s.resetFlow();
+      run(s, 3);
+      const n = Math.hypot(dx, dy), c = s.idx(40 + Math.round((dx / n) * 6), 25 + Math.round((dy / n) * 6));
+      expect(finite(s)).toBe(true);
+      expect((s.u[c] * dx + s.v[c] * dy) / n).toBeGreaterThan(0.3); // velocity component along the fan direction
+    });
   });
 });

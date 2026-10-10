@@ -3,9 +3,10 @@ import { translate, type Lang } from './i18n';
 import { insights as makeInsights, type Insight } from './insights';
 import { decodeCell, deserialize, encodeCell, fromHash, serialize, toHash, type Layout } from './layout';
 import { detectAlignments, type Alignment } from './phongthuy';
+import { Sweep, type SweepRow } from './sweep';
 import { clampCell, inb, isShape, line4, put, shapeCells, stamp, type Pt, type Shape, type Tool } from './edit';
 import { PRESETS } from './presets';
-import { Sim, T_FAN, T_HEAT, T_OPEN, T_WALL, type Mode, type RoomStat, type Score } from './sim';
+import { Sim, T_FAN, T_HEAT, T_OPEN, T_SCREEN, T_WALL, type Mode, type RoomStat, type Score } from './sim';
 import { GRIDS, MODES, TOOLS, type GridKey, type View } from './tools';
 
 /* ------------------------------------------------------------------ types */
@@ -28,6 +29,9 @@ export interface UiState {
   cmpMsg: string; codeMsg: string; codeText: string; shareMsg: string;
   status: string; legend: { min: string; max: string };
   lang: Lang; phongThuy: boolean; insights: Insight[]; alignments: Alignment[];
+  sweepCount: 8 | 16; sweepSec: number; sweepMsg: string;
+  sweep: { progress: number; index: number; total: number; deg: number } | null;
+  sweepResult: { rows: SweepRow[]; speed: number; seconds: number } | null;
   rev: number;
 }
 type Slot = 'A' | 'B';
@@ -73,7 +77,7 @@ export class Engine {
   private fanDir = 0;
   private running = true;
   private view: View = 'temp';
-  private particlesOn = true; private arrowsOn = false; private deadOn = true; private labelsOn = true;
+  private particlesOn = true; private arrowsOn = true; private deadOn = true; private labelsOn = true;
   private deadThr = 0.1; private simSpeed = 3; private testT = 120;
   private test: { slot: Slot; T: number; wasRunning: boolean } | null = null;
   private slots: { A: TestResult | null; B: TestResult | null } = { A: null, B: null };
@@ -85,6 +89,9 @@ export class Engine {
   private cmpMsg = ''; private codeMsg = ''; private codeText = ''; private shareMsg = ''; private shareTimer: ReturnType<typeof setTimeout> | undefined;
   private lang: Lang = 'en'; private phongThuy = false;
   private insightList: Insight[] = []; private aligns: Alignment[] = [];
+  private sweepCount: 8 | 16 = 8; private sweepSec = 60; private sweepMsg = '';
+  private sweepRun: { sweep: Sweep; wasRunning: boolean } | null = null;
+  private sweepResult: { rows: SweepRow[]; speed: number; seconds: number } | null = null;
 
   // rendering
   private cv: HTMLCanvasElement | null = null; private ctx: CanvasRenderingContext2D | null = null;
@@ -94,7 +101,7 @@ export class Engine {
   private DPR = 1; private P = 7;
   private C: Record<string, string> = {};
   private LUT: Record<string, Uint8ClampedArray> = {};
-  private hatchPat: CanvasPattern | null = null;
+  private hatchPat: CanvasPattern | null = null; private dotPat: CanvasPattern | null = null;
   private cleanup: (() => void)[] = [];
   private raf = 0; private lastPanel = 0; private persistTimer: ReturnType<typeof setTimeout> | undefined;
   private lastWrapW = 0; private resizeRaf = 0; private failed = false; private booted = false;
@@ -133,6 +140,9 @@ export class Engine {
       test: this.test ? { slot: this.test.slot, T: this.test.T } : null,
       slots: this.slots, cmpMsg: this.cmpMsg, codeMsg: this.codeMsg, codeText: this.codeText, shareMsg: this.shareMsg,
       lang: this.lang, phongThuy: this.phongThuy, insights: this.insightList, alignments: this.aligns,
+      sweepCount: this.sweepCount, sweepSec: this.sweepSec, sweepMsg: this.sweepMsg,
+      sweep: this.sweepRun ? { progress: this.sweepRun.sweep.progress, index: this.sweepRun.sweep.current, total: this.sweepRun.sweep.dirs.length, deg: this.sweepRun.sweep.dirs[this.sweepRun.sweep.current] } : null,
+      sweepResult: this.sweepResult,
       status: this.statusText(), legend: this.legendText(), rev: ++this.rev
     };
   }
@@ -234,6 +244,10 @@ export class Engine {
     c.strokeStyle = this.C.hatch; c.lineWidth = Math.max(1, this.DPR); c.globalAlpha = 0.85; c.beginPath();
     c.moveTo(0, s); c.lineTo(s, 0); c.moveTo(-s / 2, s / 2); c.lineTo(s / 2, -s / 2); c.moveTo(s / 2, s * 1.5); c.lineTo(s * 1.5, s / 2); c.stroke();
     this.hatchPat = this.ctx.createPattern(pc, 'repeat');
+    const d = Math.max(5, Math.round(5 * this.DPR)), dc = document.createElement('canvas'); dc.width = dc.height = d;
+    const g = dc.getContext('2d'); if (!g) return;
+    g.fillStyle = this.C.accent; g.beginPath(); g.arc(d / 2, d / 2, Math.max(1, this.DPR * 0.9), 0, 7); g.fill();
+    this.dotPat = this.ctx.createPattern(dc, 'repeat');
   }
 
   /* ---------------------------------------------------------- grid and sim */
@@ -263,7 +277,7 @@ export class Engine {
         const a = old.idx(x, y), b = ns.idx(nx, ny); ns.cell[b] = old.cell[a]; ns.fdir[b] = old.fdir[a];
       }
     }
-    this.sim = ns; ns.setWind(ns.speed, ns.deg); ns.resetFlow(); this.resizeBuffers();
+    this.sim = ns; this.dropSweep(); ns.setWind(ns.speed, ns.deg); ns.resetFlow(); this.resizeBuffers();
     this.hist = []; this.redoStack = [];
   }
   private types(): Uint8Array {
@@ -283,7 +297,7 @@ export class Engine {
   }
   private applyLayout(l: Layout): void {
     if (l.W !== this.sim.W || l.H !== this.sim.H) this.replaceSim(l.W, l.H, false);
-    const s = this.sim; s.mode = l.mode; s.cellSize = l.cell;
+    const s = this.sim; s.mode = l.mode; s.cellSize = l.cell; this.dropSweep();
     this.setTypes(l.types); s.setWind(l.wind.speed, l.wind.deg); s.resetFlow();
     this.hist = []; this.redoStack = [];
   }
@@ -292,13 +306,14 @@ export class Engine {
   private pushHist(a: Uint8Array): void { this.hist.push(a); if (this.hist.length > 60) this.hist.shift(); this.redoStack.length = 0; }
   undo = (): void => { if (!this.hist.length) return; this.redoStack.push(this.types()); this.setTypes(this.hist.pop()!); this.afterEdit(); };
   redo = (): void => { if (!this.redoStack.length) return; this.hist.push(this.types()); this.setTypes(this.redoStack.pop()!); this.afterEdit(); };
-  private afterEdit(): void { this.sim.rebuild(); this.sim.dirty = true; this.persist(); this.emit(); }
+  private afterEdit(): void { this.dropSweep(); this.sim.rebuild(); this.sim.dirty = true; this.persist(); this.emit(); }
 
   /* ---------------------------------------------------------------- editing */
   private applyAt(tool: Tool, x: number, y: number): void {
     const s = this.sim;
     if (tool === 'wall') stamp(x, y, this.brush.wall, (a, b) => put(s, a, b, T_WALL));
     else if (tool === 'open') stamp(x, y, this.brush.open, (a, b) => { if (inb(s, a, b) && s.cell[s.idx(a, b)] === T_WALL) { put(s, a, b, T_OPEN); if (this.drag) this.drag.count++; } });
+    else if (tool === 'screen') stamp(x, y, this.brush.wall, (a, b) => { if (inb(s, a, b) && s.cell[s.idx(a, b)] !== T_WALL) put(s, a, b, T_SCREEN); });
     else if (tool === 'erase') stamp(x, y, this.brush.erase, (a, b) => put(s, a, b, 0));
     else if (tool === 'fan') put(s, x, y, T_FAN, this.fanDir);
     else if (tool === 'heat') put(s, x, y, T_HEAT);
@@ -344,7 +359,7 @@ export class Engine {
   setFanDir = (d: number): void => { this.fanDir = d & 7; this.emit(); };
   rotateFan = (): void => { if (this.tool === 'fan') this.setFanDir(this.fanDir + 1); };
   setView = (v: View): void => { this.view = v; this.drawLegend(); this.emit(); };
-  toggleRun = (): void => { if (this.test) return; this.running = !this.running; this.emit(); };
+  toggleRun = (): void => { if (this.test || this.sweepRun) return; this.running = !this.running; this.emit(); };
   resetFlow = (): void => { this.sim.resetFlow(); this.prewarm(4); this.updatePanels(); };
   clear = (): void => { this.pushHist(this.types()); this.sim.cell.fill(0); this.sim.fdir.fill(0); this.afterEdit(); this.sim.resetFlow(); this.updatePanels(); };
   setOverlay = (k: 'particles' | 'arrows' | 'dead' | 'labels', on: boolean): void => {
@@ -356,6 +371,34 @@ export class Engine {
   setTestT = (v: number): void => { this.testT = v; this.emit(); };
   setPhys = (k: 'mixing' | 'swirl' | 'fanSpeed' | 'heatDT' | 'gain' | 'ceilH', v: number): void => { this.sim[k] = v; this.emit(); };
   setWind = (speed: number, deg: number): void => { this.sim.setWind(speed, deg); this.sim.dirty = true; this.persist(); this.emit(); };
+  /** Forget sweep results, and stop a sweep in progress, once the drawing they describe has changed. */
+  private dropSweep(): void {
+    if (this.sweepRun) { this.running = this.sweepRun.wasRunning; this.sweepRun = null; }
+    this.sweepResult = null;
+  }
+  setSweepOptions = (count: 8 | 16, sec: number): void => { this.sweepCount = count; this.sweepSec = sec; this.emit(); };
+  startSweep = (): void => {
+    const s = this.sim;
+    if (this.sweepRun || this.test) return;
+    this.sweepMsg = '';
+    if (s.mode !== 'plan') this.sweepMsg = this.t('sweep.needPlan');
+    else if (!s.rooms.length) this.sweepMsg = this.t('msg.needRoom');
+    else if (s.speed < 0.3) this.sweepMsg = this.t('sweep.needWind');
+    if (this.sweepMsg) { this.emit(); return; }
+    this.sweepRun = {
+      sweep: new Sweep(this.capture(), { mixing: s.mixing, swirl: s.swirl, fanSpeed: s.fanSpeed, heatDT: s.heatDT, gain: s.gain, ceilH: s.ceilH }, s.speed, this.sweepSec, this.sweepCount, this.deadThr),
+      wasRunning: this.running
+    };
+    this.running = false; this.sweepResult = null; this.emit();
+  };
+  cancelSweep = (): void => { if (!this.sweepRun) return; this.running = this.sweepRun.wasRunning; this.sweepRun = null; this.emit(); };
+  private advanceSweep(): void {
+    const r = this.sweepRun!;
+    if (r.sweep.advance(14)) {
+      this.sweepResult = { rows: r.sweep.results, speed: r.sweep.speed, seconds: r.sweep.seconds };
+      this.running = r.wasRunning; this.sweepRun = null; this.updatePanels();
+    }
+  }
   setLang = (l: Lang): void => { this.lang = l; this.updatePanels(); };
   setPhongThuy = (on: boolean): void => { this.phongThuy = on; this.updatePanels(); };
 
@@ -384,6 +427,7 @@ export class Engine {
 
   switchMode = (m: Mode): void => {
     const s = this.sim; if (m === s.mode) return;
+    this.dropSweep();
     this.saved[s.mode] = this.capture();
     const next = this.saved[m]; this.saved[m] = null;
     if (next) this.applyLayout(next);
@@ -399,6 +443,7 @@ export class Engine {
   loadPreset = (id: string, quiet = false): void => {
     const s = this.sim, p = PRESETS[s.mode].find((q) => q.id === id) ?? PRESETS[s.mode][0];
     if (!quiet) this.pushHist(this.types());
+    this.dropSweep();
     s.cell.fill(0); s.fdir.fill(0); p.build(s);
     s.setWind(p.speed, p.deg); s.resetFlow(); this.prewarm(); this.persist(); this.updatePanels();
   };
@@ -460,7 +505,7 @@ export class Engine {
     return { label, T: s.t, mode: s.mode, wind: { speed: s.speed, deg: s.deg }, sc: Sim.score(stats), stats, state: this.capture() };
   }
   startTest = (slot: Slot): void => {
-    if (this.test) return;
+    if (this.test || this.sweepRun) return;
     if (!this.sim.rooms.length) { this.cmpMsg = this.t('msg.needRoom'); this.emit(); return; }
     this.cmpMsg = ''; this.sim.resetFlow();
     this.test = { slot, T: this.testT, wasRunning: this.running }; this.running = false; this.emit();
@@ -501,7 +546,7 @@ export class Engine {
     const pos = `x ${fmt((cx + 0.5) * h, 1)} m, y ${fmt((cy + 0.5) * h, 1)} m`;
     if (t === T_WALL) return pos + ' | ' + this.t('probe.wall');
     const lab = s.labels[c];
-    const where = t === T_OPEN ? this.t('probe.opening') : t === T_FAN ? this.t('probe.fan') : t === T_HEAT ? this.t('probe.heater') : lab > 0 ? s.rooms[lab - 1].name : lab === -1 ? this.t('probe.outside') : this.t('probe.pocket');
+    const where = t === T_SCREEN ? this.t('probe.screen') : t === T_OPEN ? this.t('probe.opening') : t === T_FAN ? this.t('probe.fan') : t === T_HEAT ? this.t('probe.heater') : lab > 0 ? s.rooms[lab - 1].name : lab === -1 ? this.t('probe.outside') : this.t('probe.pocket');
     const u = s.u[c], v = s.v[c], sp = Math.hypot(u, v);
     return `${pos} | ${where} | ${fmt(sp, 2)} m/s ${sp > 0.02 ? arrowOf(u, v) : ''} | ${this.t('probe.fresh')} ${pct(s.fresh[c])} | ${this.t('probe.age')} ${fmt(s.age[c], 0)} s | +${fmt(s.temp[c], 1)} K`;
   }
@@ -580,6 +625,12 @@ export class Engine {
     ctx.fillStyle = C.wall; ctx.fill(this.runsPath((c) => cell[c] === T_WALL));
     ctx.save(); ctx.globalAlpha = 0.6; ctx.fillStyle = C.glass; ctx.fill(this.runsPath((c) => cell[c] === T_OPEN)); ctx.restore();
     ctx.fillStyle = C.heat; ctx.fill(this.runsPath((c) => cell[c] === T_HEAT));
+    if (s.screens.length) {
+      const sp = this.runsPath((c) => cell[c] === T_SCREEN);
+      ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = C.accent; ctx.fill(sp); ctx.globalAlpha = 1;
+      if (this.dotPat) { ctx.fillStyle = this.dotPat; ctx.fill(sp); }
+      ctx.restore();
+    }
     for (const c of s.fans) this.drawFan(c);
 
     if (this.particlesOn) this.drawParticles();
@@ -666,7 +717,7 @@ export class Engine {
     } else if (d && d.tool === 'open' && d.count) this.chip(`opening ${fmt((d.count * h) / Math.max(1, this.brush.open), 1)} m`, (d.cur.x + 1.5) * P, (d.cur.y - 1.2) * P, 'left');
     const hv = this.hover;
     if (hv && !d) {
-      const t = this.tool, sz = t === 'wall' ? this.brush.wall : t === 'open' ? this.brush.open : t === 'erase' ? this.brush.erase : 1, off = sz >> 1;
+      const t = this.tool, sz = t === 'wall' || t === 'screen' ? this.brush.wall : t === 'open' ? this.brush.open : t === 'erase' ? this.brush.erase : 1, off = sz >> 1;
       ctx.save(); ctx.strokeStyle = this.C.accent; ctx.lineWidth = Math.max(1.5, DPR * 1.5); ctx.strokeRect((hv.x - off) * P, (hv.y - off) * P, sz * P, sz * P); ctx.restore();
     }
   }
@@ -694,7 +745,7 @@ export class Engine {
     if (this.failed) return;
     try {
       let dt = 0;
-      if (this.test) dt = this.advanceTest(); else if (this.running) dt = this.advance();
+      if (this.sweepRun) this.advanceSweep(); else if (this.test) dt = this.advanceTest(); else if (this.running) dt = this.advance();
       if (dt > 0) this.stepParticles(dt);
       this.render();
       if (ts - this.lastPanel > 250) { this.lastPanel = ts; this.updatePanels(); }

@@ -2,11 +2,30 @@
    Units: velocity m/s, time s, length m (cellSize m per cell).
    Padded index: (x+1) + (y+1)*S, ghost ring at 0 and W+1 / H+1. */
 
-export const T_EMPTY = 0, T_WALL = 1, T_OPEN = 2, T_FAN = 3, T_HEAT = 4;
+export const T_EMPTY = 0, T_WALL = 1, T_OPEN = 2, T_FAN = 3, T_HEAT = 4, T_SCREEN = 5;
+/** Loss coefficient of a screen, plant or curtain cell: pressure drop = 0.5 * rho * K * u^2 across one cell. Plausible, not measured. */
+export const SCREEN_K = 5;
 const R2 = Math.SQRT1_2;
 // 8 fan directions: E, SE, S, SW, W, NW, N, NE (screen coords, y down)
 export const FAN_VEC: [number, number][] = [[1, 0], [R2, R2], [0, 1], [-R2, R2], [-1, 0], [-R2, -R2], [0, -1], [R2, -R2]];
 export const FAN_STEP: [number, number][] = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+
+/**
+ * The cells a fan drives: the fan cell and its neighbours across the jet. Neighbours of an in-grid fan are at most one cell
+ * away in x and y, so they land in the same row or the ghost ring and never wrap to the other side of the grid.
+ * For the four diagonal directions the three cells only touch at corners, which the pressure projection treats as a gap
+ * and mostly cancels, so two bridge cells (on the upstream side) make the line 4-connected.
+ */
+export function fanJetCells(c: number, dir: number, S: number, N: number): number[] {
+  const px = -FAN_STEP[dir][1], py = FAN_STEP[dir][0], out: number[] = [];
+  for (let k = -1; k <= 1; k++) out.push(c + k * px + k * py * S);
+  if (px !== 0 && py !== 0) {
+    // Bridge on the upstream side of the fan, so the jet is not pinched by cells it has already pushed past.
+    const fx = FAN_STEP[dir][0];
+    for (const [qx, qy] of [[px, py], [-px, -py]]) out.push(qx * fx < 0 ? c + qx : c + qy * S);
+  }
+  return out.filter((x) => x > S && x < N - S);
+}
 
 export type Mode = 'plan' | 'section';
 
@@ -58,7 +77,7 @@ export class Sim {
   temp!: Float32Array; temp0!: Float32Array; spd!: Float32Array;
   cell!: Uint8Array; fdir!: Uint8Array; solid!: Uint8Array; pNeu!: Uint8Array;
   labels!: Int16Array; rooms: Room[] = [];
-  fans: number[] = []; heaters: number[] = [];
+  fans: number[] = []; heaters: number[] = []; screens: number[] = [];
   sideKind: number[] = [0, 0, 0, 0]; // L,R,T,B : 0 outflow, 1 inflow, 2 wall
   t = 0; maxV = 0; track: Record<number, { t50: number | null; t90: number | null }> = {}; trackAcc = 0; dirty = false;
   private _sv: [number, number] = [0, 0];
@@ -80,7 +99,7 @@ export class Sim {
     this.cell = new Uint8Array(N); this.fdir = new Uint8Array(N);
     this.solid = new Uint8Array(N); this.pNeu = new Uint8Array(N);
     this.labels = new Int16Array(N); this.rooms = [];
-    this.fans = []; this.heaters = [];
+    this.fans = []; this.heaters = []; this.screens = [];
     this.sideKind = [0, 0, 0, 0];
     this.t = 0; this.maxV = 0; this.track = {}; this.trackAcc = 0; this.dirty = false;
     this.queue = new Int32Array(W * H);
@@ -101,7 +120,7 @@ export class Sim {
   /* Recompute masks, boundary kinds and room labels after any layout/wind/mode change. */
   rebuild(): void {
     const W = this.W, H = this.H, S = this.S, cell = this.cell, solid = this.solid, pNeu = this.pNeu;
-    solid.fill(0); pNeu.fill(0); this.fans.length = 0; this.heaters.length = 0;
+    solid.fill(0); pNeu.fill(0); this.fans.length = 0; this.heaters.length = 0; this.screens.length = 0;
     for (let j = 1; j <= H; j++) {
       let c = j * S + 1;
       for (let i = 1; i <= W; i++, c++) {
@@ -109,6 +128,7 @@ export class Sim {
         if (t === T_WALL) { solid[c] = 1; pNeu[c] = 1; this.u[c] = 0; this.v[c] = 0; }
         else if (t === T_FAN) this.fans.push(c);
         else if (t === T_HEAT) this.heaters.push(c);
+        else if (t === T_SCREEN) this.screens.push(c);
       }
     }
     const sec = this.mode === 'section';
@@ -298,11 +318,11 @@ export class Sim {
     }
     for (const c of this.fans) { // fans: 3-cell wide jet
       const d = this.fdir[c], fx = FAN_VEC[d][0] * this.fanSpeed, fy = FAN_VEC[d][1] * this.fanSpeed;
-      const px = -FAN_STEP[d][1], py = FAN_STEP[d][0];
-      for (let k = -1; k <= 1; k++) {
-        const x = c + k * px + k * py * S;
-        if (x > S && x < this.N - S && !solid[x]) { u[x] = fx; v[x] = fy; }
-      }
+      for (const x of fanJetCells(c, d, S, this.N)) if (!solid[x]) { u[x] = fx; v[x] = fy; }
+    }
+    for (const c of this.screens) { // porous obstacles: quadratic drag, applied implicitly so it stays stable
+      const f = 1 / (1 + dt * SCREEN_K * Math.hypot(u[c], v[c]) / (2 * h));
+      u[c] *= f; v[c] *= f;
     }
     if (this.swirl > 0) { // vorticity confinement keeps eddies alive
       const om = this.om, aw = this.aw, eps = this.swirl * h;
