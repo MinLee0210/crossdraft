@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type { Engine, TestResult, UiState } from '@/lib/engine';
+import { FS_SOURCES } from '@/lib/fengshui';
 import { beaufort, compass, fmt, pct } from '@/lib/format';
 import { PRESETS } from '@/lib/presets';
 import { GRIDS, type GridKey } from '@/lib/tools';
@@ -108,7 +109,11 @@ function FengShui({ ui }: Pick<Props, 'ui'>) {
         <details key={r.id} className={'fsrule fs-' + r.status} open={r.status === 'attention'}>
           <summary><span className="fsmark" aria-hidden="true">{FS_MARK[r.status]}</span><span className="fstitle">{t(`fs.${r.id}.title`)}</span><span className="fsstat">{t('fs.status.' + r.status)}</span></summary>
           <p className="note"><b>{t(r.key, r.vars)}</b></p>
+          {r.more && <p className="note">{t(r.more.key, r.more.vars)}</p>}
           <p className="note">{t(`fs.${r.id}.tradition`)}</p>
+          <p className="note fssrc">{t('fs.sources')}{' '}
+            {FS_SOURCES[r.id].map((src, i) => <span key={src.url}>{i > 0 && '; '}<a href={src.url} target="_blank" rel="noopener noreferrer">{src.title}</a></span>)}
+          </p>
           <p className="note">{t(`fs.${r.id}.physics`)}</p>
         </details>
       ))}

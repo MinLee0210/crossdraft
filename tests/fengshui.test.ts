@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bearingGap, evaluateFengShui, FS_NOT_CHECKED, FS_RULES, windSide } from '../lib/fengshui';
+import { bearingGap, evaluateFengShui, FS_NOT_CHECKED, FS_RULES, FS_SOURCES, windSide } from '../lib/fengshui';
 import { EN, translate } from '../lib/i18n';
 import { findOpenings } from '../lib/openings';
 import { detectAlignments } from '../lib/phongthuy';
@@ -148,5 +148,16 @@ describe('stale rule', () => {
     expect(String(bad.vars.rooms)).toContain('R1');
     expect(rule(run(room([W_OPEN, E_OPEN]), true, 0.9), 'stale').status).toBe('ok');
     expect(rule(run(room([W_OPEN, E_OPEN]), true, 0.9, 0.4), 'stale').status).toBe('attention');
+  });
+});
+
+describe('sources', () => {
+  it('lists at least one https source for every rule, and labels them in both languages', () => {
+    for (const id of FS_RULES) {
+      expect(FS_SOURCES[id].length, id).toBeGreaterThan(0);
+      for (const s of FS_SOURCES[id]) expect(s.url, id).toMatch(/^https:\/\//);
+    }
+    expect(translate('en', 'fs.sources')).toMatch(/not science/);
+    expect(translate('vi', 'fs.sources')).toMatch(/không phải khoa học/);
   });
 });

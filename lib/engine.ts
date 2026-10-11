@@ -3,6 +3,7 @@ import { translate, type Lang } from './i18n';
 import { insights as makeInsights, type Insight } from './insights';
 import { decodeCell, deserialize, encodeCell, fromHash, serialize, toHash, type Layout } from './layout';
 import { evaluateFengShui, type FsResult } from './fengshui';
+import { GifEncoder, medianCut, Quantizer } from './gif';
 import { detectAlignments, type Alignment } from './phongthuy';
 import { Sweep, type SweepRow } from './sweep';
 import { clampCell, inb, isShape, line4, put, shapeCells, stamp, type Pt, type Shape, type Tool } from './edit';
@@ -34,9 +35,18 @@ export interface UiState {
   sweepCount: 8 | 16; sweepSec: number; sweepMsg: string;
   sweep: { progress: number; index: number; total: number; deg: number } | null;
   sweepResult: { rows: SweepRow[]; speed: number; seconds: number } | null;
+  /** GIF recording: seconds left while recording, or 'encoding'. Null when idle. */
+  gif: { left: number } | 'encoding' | null; gifMsg: string;
   rev: number;
 }
 type Slot = 'A' | 'B';
+
+const GIF_SEC = 5, GIF_FRAME_MS = 80, GIF_MAX_W = 640;
+interface GifRec {
+  cv: HTMLCanvasElement; ctx: CanvasRenderingContext2D; w: number; h: number;
+  q: Quantizer | null; frames: Uint8Array[]; delays: number[];
+  start: number; last: number; wasRunning: boolean; encoding: boolean;
+}
 
 /* ---------------------------------------------------------------- colours */
 const RAMPS = {
@@ -95,6 +105,7 @@ export class Engine {
   private sweepCount: 8 | 16 = 8; private sweepSec = 60; private sweepMsg = '';
   private sweepRun: { sweep: Sweep; wasRunning: boolean } | null = null;
   private sweepResult: { rows: SweepRow[]; speed: number; seconds: number } | null = null;
+  private rec: GifRec | null = null; private gifMsg = ''; private gifTimer: ReturnType<typeof setTimeout> | undefined;
 
   // rendering
   private cv: HTMLCanvasElement | null = null; private ctx: CanvasRenderingContext2D | null = null;
@@ -146,6 +157,8 @@ export class Engine {
       fengShui: this.fengShui, sweepCount: this.sweepCount, sweepSec: this.sweepSec, sweepMsg: this.sweepMsg,
       sweep: this.sweepRun ? { progress: this.sweepRun.sweep.progress, index: this.sweepRun.sweep.current, total: this.sweepRun.sweep.dirs.length, deg: this.sweepRun.sweep.dirs[this.sweepRun.sweep.current] } : null,
       sweepResult: this.sweepResult,
+      gif: this.rec ? (this.rec.encoding ? 'encoding' : { left: Math.max(0, Math.ceil(GIF_SEC - (this.rec.last - this.rec.start) / 1000)) }) : null,
+      gifMsg: this.gifMsg,
       status: this.statusText(), legend: this.legendText(), rev: ++this.rev
     };
   }
@@ -190,6 +203,7 @@ export class Engine {
 
   detach(): void {
     cancelAnimationFrame(this.raf); clearTimeout(this.persistTimer); clearTimeout(this.shareTimer);
+    this.rec = null; clearTimeout(this.gifTimer);
     this.cleanup.forEach((f) => f()); this.cleanup = [];
     this.cv = this.ctx = this.wrap = this.lg = this.fc = this.fctx = null;
   }
@@ -739,6 +753,64 @@ export class Engine {
     ctx.restore();
   }
 
+  /* ----------------------------------------------------------- GIF export */
+  /** Records GIF_SEC seconds of the canvas as it runs, then downloads it as an animated GIF. */
+  recordGif = (): void => {
+    if (this.rec || this.sweepRun || !this.cv) return;
+    const scale = Math.min(1, GIF_MAX_W / this.cv.width), w = Math.max(1, Math.round(this.cv.width * scale)), h = Math.max(1, Math.round(this.cv.height * scale));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    if (!ctx) { this.gifMsg = this.t('gif.failed'); this.emit(); return; }
+    this.rec = { cv, ctx, w, h, q: null, frames: [], delays: [], start: -1, last: -1, wasRunning: this.running, encoding: false };
+    if (!this.test) this.running = true; // a paused canvas would make a still GIF
+    this.gifMsg = ''; this.emit();
+  };
+
+  private captureGif(ts: number): void {
+    const r = this.rec!;
+    if (r.start < 0) { r.start = r.last = ts; }
+    else if (ts - r.last < GIF_FRAME_MS) return;
+    else { r.delays.push((ts - r.last) / 10); r.last = ts; }
+    const { ctx, w, h } = r, DPR = w / (this.cv!.width / this.DPR);
+    ctx.drawImage(this.cv!, 0, 0, w, h);
+    // Keep the caveat on the image itself: a GIF travels without the page around it.
+    const text = `Crossdraft · ${this.t('view.' + this.view)} · ${this.t('gif.caption')}`;
+    ctx.save(); ctx.font = `500 ${Math.max(9, 11 * DPR)}px ${MONO}`; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(text).width, bh = Math.max(14, 18 * DPR), X = w - tw - 10 * DPR, Y = h - bh - 4 * DPR;
+    ctx.globalAlpha = 0.86; ctx.fillStyle = this.C.panel; ctx.fillRect(X - 5 * DPR, Y, tw + 10 * DPR, bh);
+    ctx.globalAlpha = 1; ctx.fillStyle = this.C.ink; ctx.fillText(text, X, Y + bh / 2 + 0.5); ctx.restore();
+    const px = ctx.getImageData(0, 0, w, h).data;
+    if (!r.q) r.q = new Quantizer(medianCut(px)); // the first frame sets the palette for the whole clip
+    r.frames.push(r.q.map(px));
+    if (ts - r.start >= GIF_SEC * 1000) {
+      r.delays.push(GIF_FRAME_MS / 10);
+      r.encoding = true; this.running = r.wasRunning || !!this.test; this.emit();
+      setTimeout(() => this.finishGif(r), 30); // let the "encoding" label paint first
+    }
+  }
+
+  private finishGif(r: GifRec): void {
+    if (this.rec !== r) return;
+    try {
+      const enc = new GifEncoder(r.w, r.h, r.q!.palette);
+      r.frames.forEach((f, i) => enc.addFrame(f, r.delays[i]));
+      const url = URL.createObjectURL(new Blob([enc.finish().buffer as ArrayBuffer], { type: 'image/gif' }));
+      const d = new Date(), pad = (n: number) => String(n).padStart(2, '0');
+      const a = document.createElement('a');
+      a.href = url; a.download = `crossdraft-${this.view}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.gif`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      this.gifMsg = this.t('gif.saved');
+    } catch (err) {
+      console.error('Crossdraft: GIF export failed', err);
+      this.gifMsg = this.t('gif.failed');
+    }
+    this.rec = null;
+    clearTimeout(this.gifTimer);
+    this.gifTimer = setTimeout(() => { this.gifMsg = ''; this.emit(); }, 3000);
+    this.emit();
+  }
+
   /* ---------------------------------------------------------------- loop */
   private advance(): number {
     const s = this.sim, t0 = performance.now(); let n = 0, sum = 0;
@@ -752,6 +824,7 @@ export class Engine {
       if (this.sweepRun) this.advanceSweep(); else if (this.test) dt = this.advanceTest(); else if (this.running) dt = this.advance();
       if (dt > 0) this.stepParticles(dt);
       this.render();
+      if (this.rec && !this.rec.encoding) this.captureGif(ts);
       if (ts - this.lastPanel > 250) { this.lastPanel = ts; this.updatePanels(); }
     } catch (err) {
       // Stop the loop's work rather than logging 60 errors a second.

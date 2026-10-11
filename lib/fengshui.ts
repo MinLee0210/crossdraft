@@ -1,6 +1,6 @@
 import { compass } from './format';
 import { findOpenings } from './openings';
-import type { Alignment } from './phongthuy';
+import { ENTRY_M, type Alignment } from './phongthuy';
 import { T_OPEN, T_SCREEN, T_WALL, type RoomStat, type Sim } from './sim';
 
 /**
@@ -14,6 +14,26 @@ export type FsRuleId = (typeof FS_RULES)[number];
 /** Things people associate with feng shui that Crossdraft does not check. Translation keys are `fs.nc.<id>`. */
 export const FS_NOT_CHECKED = ['stairs', 'layout', 'furniture', 'compass', 'size'] as const;
 
+/**
+ * Where each rule's "Tradition" text comes from. Practitioner articles, not science: they show what the tradition says.
+ * Checked 2026-10-11. Several also make luck claims; Crossdraft only takes the airflow part.
+ */
+export const FS_SOURCES: Record<FsRuleId, { title: string; url: string }[]> = {
+  align: [
+    { title: 'Master Sean Chan: Front door aligned with back door', url: 'https://www.masterseanchan.com/feng-shui-front-back-door-myth/' },
+    { title: 'Thư Viện Nhà Đất: Lỗi thường gặp khi thiết kế cửa chính', url: 'https://thuviennhadat.vn/cam-nang-nha-dat/nhung-loi-thuong-gap-khi-thiet-ke-cua-chinh-theo-phong-thuy-va-cach-sua-chua-605037.html' }
+  ],
+  buffer: [
+    { title: 'Bách Hóa Xanh: Huyền quan là gì?', url: 'https://www.bachhoaxanh.com/kinh-nghiem-hay/huyen-quan-la-gi-vai-tro-cua-huyen-quan-trong-phong-thuy-nha-o-1401970' }
+  ],
+  wind: [
+    { title: 'VnExpress: Cây xanh trong phong thủy', url: 'https://vnexpress.net/cay-xanh-trong-phong-thuy-2428975.html' }
+  ],
+  stale: [
+    { title: 'Phong Thủy Tam Nguyên: Bí quyết lưu thông không khí trong nhà ở', url: 'https://phongthuytamnguyen.com/kien-thuc/bi-quyet-luu-thong-khong-khi-trong-nha-o' }
+  ]
+};
+
 export type FsStatus = 'ok' | 'attention' | 'info';
 export interface FsRule {
   id: FsRuleId;
@@ -21,6 +41,8 @@ export interface FsRule {
   /** Translation key of the one-sentence result. */
   key: string;
   vars: Record<string, string | number>;
+  /** Optional second measured sentence. */
+  more?: { key: string; vars: Record<string, string | number> };
 }
 export interface FsResult { rules: FsRule[]; notChecked: readonly string[] }
 
@@ -60,8 +82,11 @@ export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignm
   else {
     const open = alignments.filter((a) => !a.screened), a = open[0] ?? alignments[0];
     const vars = { room: name(a.room), len: fix(a.length), speed: fix(a.speed) };
-    if (open.length) rules.push({ id: 'align', status: 'attention', key: 'fs.align.found', vars: { ...vars, n: open.length } });
-    else rules.push({ id: 'align', status: 'ok', key: 'fs.align.screened', vars });
+    const more = settled
+      ? { key: 'fs.align.linger', vars: { d: ENTRY_M, dir: a.entry.facing === null ? '?' : compass(a.entry.facing), age: fix(a.linger, 0) } }
+      : undefined;
+    if (open.length) rules.push({ id: 'align', status: 'attention', key: 'fs.align.found', vars: { ...vars, n: open.length }, more });
+    else rules.push({ id: 'align', status: 'ok', key: 'fs.align.screened', vars, more });
   }
 
   // 2. Entrance buffer: a wall or screen shortly inside each exterior opening
