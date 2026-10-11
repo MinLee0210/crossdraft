@@ -1,0 +1,58 @@
+name: Deploy
+
+# Production deploy to Vercel, only when develop is merged into main.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      from_develop: ${{ steps.pr.outputs.from_develop }}
+    steps:
+      - id: pr
+        name: Was this push a merged PR from develop?
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main") | .head.ref][0] // ""')
+          echo "Source branch: '${head}'"
+          if [ "$head" = "develop" ]; then
+            echo "from_develop=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Push to main did not come from a develop merge; skipping deploy."
+            echo "from_develop=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  check:
+    needs: guard
+    if: needs.guard.outputs.from_develop == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global vercel@latest
+      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - id: deploy
+        run: echo "url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})" >> "$GITHUB_OUTPUT"

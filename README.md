@@ -46,6 +46,10 @@ npm run build        # static export to out/
 `next.config.mjs` uses `output: 'export'`, so `npm run build` writes a static site to `out/`.
 Serve that folder from GitHub Pages, Cloudflare Pages, Netlify or Vercel.
 
+Docker: `docker compose up --build` serves it with nginx on http://localhost:8080.
+
+Branches: work lands on `develop` (the default branch). Production on Vercel deploys from GitHub Actions only when `develop` is merged into `main`; it needs the repository secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.
+
 ## How it works
 The full explanation, with the equations and the limits, is in [docs/ALGORITHMS.md](docs/ALGORITHMS.md). In short:
 - Incompressible "stable fluids" solver (Stam) on a padded grid: advect, project (SOR pressure solve), advect scalars.

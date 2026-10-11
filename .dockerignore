@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+.git
+.github
+legacy
+docs
+*.tsbuildinfo
+Dockerfile
+docker-compose.yml
