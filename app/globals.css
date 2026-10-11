@@ -167,6 +167,7 @@ tr.clickrow:hover td{background:var(--accent-soft)}
 .fsrule>summary::-webkit-details-marker{display:none}
 .fsrule .fstitle{flex:1;min-width:0}
 .fsrule .fsstat{font:500 11px var(--mono);color:var(--muted)}
+.fssrc a{color:var(--accent);overflow-wrap:anywhere}
 .fsmark{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:700 12px var(--mono);border:1.5px solid var(--muted);color:var(--muted);flex:none}
 .fs-ok .fsmark{border-color:var(--good);color:var(--good)}
 .fs-attention .fsmark{border-color:var(--warn);color:var(--warn)}

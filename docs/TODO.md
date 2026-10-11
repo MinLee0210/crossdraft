@@ -11,10 +11,10 @@ Next steps, in order. Longer-term direction is in `docs/ROADMAPS.md`; shipped wo
 
 ## Then: Phong Thuy mode (opt-in)
 - [x] Detect "front door aligned with back door/window" (`lib/phongthuy.ts`) and mark it with a dashed line; opt-in "Phong Thuy checks" overlay.
-- [ ] Measure and show: through-flow speed at the entrance (done: mean speed along the aligned line) and how long air lingers near it (air age in an entrance zone, not done).
+- [x] Measure and show: through-flow speed at the entrance (mean speed along the aligned line) and how long air lingers near it: `Alignment.linger`, the mean air age within `ENTRY_M` (2 m) inside the entry opening minus the age the air had at the opening, shown under the line rule once settled. The entry is the end with the youngest air. Finding: a porous screen just inside the entrance *shortens* it (about 9 s to 1 s in `tests/solver.entry.test.ts`), because it removes the eddies beside the incoming jet.
 - [x] Tool: screen / plant / curtain as a porous obstacle (cell type 5, quadratic drag `SCREEN_K`, key 9 is now Erase and 8 is Screen). Door-alignment check flags a screen on the line, and there is an "Aligned windows with a screen" example for A/B tests. Loss coefficient is plausible, not measured.
 - [x] Closed rule list (`lib/fengshui.ts`): four airflow rules (front-to-back line, entrance buffer, wind and openings, stagnant air), each shown with a status, what tradition says, and what the simulation measured. A "not checked" list names what Crossdraft does not cover. No luck score; tests fail if luck, wealth or health words appear in the text.
-- [ ] Source links for the tradition statements in the feng shui panel (currently unreferenced, from the research notes in `docs/ROADMAPS.md`).
+- [x] Source links for the tradition statements in the feng shui panel (`FS_SOURCES` in `lib/fengshui.ts`, checked 2026-10-11). Practitioner articles, labelled "not science"; the huyen quan source was checked from a search excerpt only.
 - [ ] Decide: separate page or a toggle? (see ROADMAPS open questions)
 
 ## Later: "Explain with AI" (OpenRouter free tier)
@@ -37,9 +37,9 @@ Decision: consider later. The rule list above is the closed input and guardrail 
 - [x] Wind-direction sweep with a wind rose (`lib/sweep.ts`, `components/WindRose.tsx`): 8 or 16 directions, ranked table, click to apply a wind. Runs time-sliced on the main thread (about a minute); a Web Worker would be smoother.
 - [ ] Trace a plan (image underlay with scale)
 - [ ] PNG export of the result
+- [x] Animated GIF export (`lib/gif.ts`, "Record GIF" in the run bar): 5 s of the live canvas at about 12 fps, up to 640 px wide, one median-cut palette from the first frame, with an "indicative 2D, not CFD" caption burnt in. Not yet checked in a real browser by an automated test.
 - [ ] Engineer metrics (air changes per hour, flow per opening)
 
 ## Known tidy-ups
 - [x] Fan jet near grid edges: verified it cannot wrap (neighbours are at most one cell away, so they land in the ghost ring); `fanJetCells` extracted and tested. The new direction tests found a different bug, fixed: diagonal fans were weak because their three cells only touched at corners (see `docs/PLAN.md`).
-- [ ] Room names (`R1`, `R2`) change when the layout is edited; consider stable ids or user names.
 - [ ] Use `textContent`-style rendering (React already escapes) if room renaming is added; keep it escaped.

@@ -12,10 +12,18 @@ export interface Alignment {
   speed: number;
   /** True when a screen, plant or curtain sits on the line. */
   screened: boolean;
+  /** The end where outside air comes in: the opening whose air is youngest. */
+  entry: { x: number; y: number; facing: number | null };
+  /**
+   * How long air lingers near the entrance: mean air age (s) of the room within ENTRY_M of the entry opening,
+   * minus the age the air already had at the opening. Only meaningful once the run has settled.
+   */
+  linger: number;
 }
 
 const TOL = 2;       // cells of lateral offset still counted as "in line"
 const MIN_GAP = 10;  // cells apart, so neighbouring windows on one wall do not count
+export const ENTRY_M = 2; // radius of the entrance zone, metres
 
 /**
  * Traditional rule: a front door in line with a back door (or big window) lets air, and "khi", run straight through.
@@ -47,5 +55,24 @@ function check(sim: Sim, A: Opening, B: Opening, room: number): Alignment | null
     if (sim.cell[c] === T_SCREEN) screened = true;
     if (k > 2 && k < steps - 2) { sum += sim.spd[c]; n++; }
   }
-  return { a: { x: A.cx, y: A.cy }, b: { x: B.cx, y: B.cy }, room, length: Math.hypot(dx, dy) * sim.cellSize, speed: n ? sum / n : 0, screened };
+  const E = meanAge(sim, A.cells) <= meanAge(sim, B.cells) ? A : B;
+  return {
+    a: { x: A.cx, y: A.cy }, b: { x: B.cx, y: B.cy }, room, length: Math.hypot(dx, dy) * sim.cellSize, speed: n ? sum / n : 0, screened,
+    entry: { x: E.cx, y: E.cy, facing: E.facing }, linger: Math.max(0, zoneAge(sim, E, room) - meanAge(sim, E.cells))
+  };
+}
+
+const meanAge = (sim: Sim, cells: number[]) => cells.reduce((t, c) => t + sim.age[c], 0) / cells.length;
+
+/** Mean air age of the room's cells within ENTRY_M of an opening's centre. */
+function zoneAge(sim: Sim, o: Opening, room: number): number {
+  const r = ENTRY_M / sim.cellSize, x0 = Math.max(0, Math.floor(o.cx - r)), x1 = Math.min(sim.W - 1, Math.ceil(o.cx + r));
+  const y0 = Math.max(0, Math.floor(o.cy - r)), y1 = Math.min(sim.H - 1, Math.ceil(o.cy + r));
+  let sum = 0, n = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const c = sim.idx(x, y);
+    if (sim.labels[c] !== room || Math.hypot(x - o.cx, y - o.cy) > r) continue;
+    sum += sim.age[c]; n++;
+  }
+  return n ? sum / n : 0;
 }

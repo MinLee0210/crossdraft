@@ -74,6 +74,9 @@ export function Stage({ engine, ui }: Props) {
         <button type="button" className="btn" onClick={engine.clear}>{t('run.clear')}</button>
         <button type="button" className="btn icon" aria-label={t('run.undo')} title={`${t('run.undo')} (Z)`} disabled={!ui.canUndo} onClick={engine.undo}>&#8630;</button>
         <button type="button" className="btn icon" aria-label={t('run.redo')} title={`${t('run.redo')} (Y)`} disabled={!ui.canRedo} onClick={engine.redo}>&#8631;</button>
+        <button type="button" className="btn" title={t('gif.tip')} disabled={ui.gif !== null || ui.sweep !== null} onClick={engine.recordGif}>
+          {ui.gif === 'encoding' ? t('gif.encoding') : ui.gif ? t('gif.recording', { s: ui.gif.left }) : ui.gifMsg || t('gif.button')}
+        </button>
         <span className="sp" />
         <label>{t('run.speed')}
           <select aria-label={t('run.speedLabel')} value={ui.simSpeed} onChange={(e) => engine.setSimSpeed(+e.target.value)}>
