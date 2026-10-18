@@ -40,6 +40,12 @@ Decision: consider later. The rule list above is the closed input and guardrail 
 - [x] Animated GIF export (`lib/gif.ts`, "Record GIF" in the run bar): 5 s of the live canvas at about 12 fps, up to 640 px wide, one median-cut palette from the first frame, with an "indicative 2D, not CFD" caption burnt in. Not yet checked in a real browser by an automated test.
 - [ ] Engineer metrics (air changes per hour, flow per opening)
 
+## Boards
+- [x] Several boards on one canvas, each with its own drawing, wind and mode; Board tool, duplicate, rename, delete, move by title; project code and share link carry all boards and notes.
+- [ ] Linked copies: a board that follows another board's walls and openings (edit once, all update) but keeps its own wind. `BoardRec.link` is reserved in the project format; the engine does not use it yet.
+- [ ] Resize a board by dragging its edges.
+- [ ] Undo for notes and arrows, and for board creation, moves and deletes.
+
 ## Known tidy-ups
 - [x] Fan jet near grid edges: verified it cannot wrap (neighbours are at most one cell away, so they land in the ghost ring); `fanJetCells` extracted and tested. The new direction tests found a different bug, fixed: diagonal fans were weak because their three cells only touched at corners (see `docs/PLAN.md`).
 - [ ] Use `textContent`-style rendering (React already escapes) if room renaming is added; keep it escaped.
