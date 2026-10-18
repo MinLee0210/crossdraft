@@ -37,7 +37,8 @@ export function unrle(str: string, n: number): Uint8Array {
   for (const tok of String(str).split(',')) {
     if (!tok) continue;
     const p = tok.split('*');
-    const v = Number(p[0]), c = p[1] === undefined ? 1 : Number(p[1]);
+    const v = Number(p[0]),
+      c = p[1] === undefined ? 1 : Number(p[1]);
     if (!Number.isInteger(v) || !Number.isInteger(c) || c < 1) throw new Error('bad token "' + tok + '"');
     const ok = (v >= 0 && v <= 5) || (v >= 10 && v <= 17);
     if (!ok) throw new Error('unknown cell value ' + v);
@@ -50,21 +51,38 @@ export function unrle(str: string, n: number): Uint8Array {
 }
 
 export function serialize(s: Layout): string {
-  return JSON.stringify({ app: 'crossdraft', v: LAYOUT_VERSION, mode: s.mode, W: s.W, H: s.H, cell: s.cell, wind: s.wind, rle: rle(s.types), ...(s.world && s.world.length ? { world: s.world } : {}) });
+  return JSON.stringify({
+    app: 'crossdraft',
+    v: LAYOUT_VERSION,
+    mode: s.mode,
+    W: s.W,
+    H: s.H,
+    cell: s.cell,
+    wind: s.wind,
+    rle: rle(s.types),
+    ...(s.world && s.world.length ? { world: s.world } : {})
+  });
 }
 
 export function deserialize(str: string): Layout {
   let o: any;
-  try { o = JSON.parse(str); } catch { throw new Error('Not valid JSON.'); }
+  try {
+    o = JSON.parse(str);
+  } catch {
+    throw new Error('Not valid JSON.');
+  }
   if (!o || o.app !== 'crossdraft') throw new Error('Not a Crossdraft layout code.');
   if (o.v !== LAYOUT_VERSION) throw new Error('Unsupported layout version ' + o.v + '.');
-  const W = o.W | 0, H = o.H | 0;
+  const W = o.W | 0,
+    H = o.H | 0;
   if (W < GRID_MIN.W || H < GRID_MIN.H || W > GRID_MAX.W || H > GRID_MAX.H) throw new Error('Grid size out of range.');
   if (!o.wind || typeof o.wind !== 'object') throw new Error('Missing wind settings.');
   const mode: Mode = o.mode === 'section' ? 'section' : 'plan';
   const world = cleanWorld(o.world);
   return {
-    mode, W, H,
+    mode,
+    W,
+    H,
     cell: clamp(+o.cell || 0.25, 0.05, 1),
     wind: { speed: clamp(+o.wind.speed || 0, 0, 12), deg: (((+o.wind.deg || 0) % 360) + 360) % 360 },
     types: unrle(o.rle, W * H),
@@ -84,12 +102,18 @@ const b64url = (str: string): string => btoa(str).replace(/\+/g, '-').replace(/\
 const unb64url = (b: string): string => atob(b.replace(/-/g, '+').replace(/_/g, '/'));
 
 /** URL fragment that carries a whole layout, e.g. `#l=eyJhcHAi...`. */
-export function toHash(l: Layout): string { return '#l=' + b64url(serialize(l)); }
+export function toHash(l: Layout): string {
+  return '#l=' + b64url(serialize(l));
+}
 
 /** Reads a layout from a URL fragment. Returns null when there is none; throws a readable error when it is damaged. */
 export function fromHash(hash: string): Layout | null {
   if (!hash.startsWith('#l=')) return null;
   let json: string;
-  try { json = unb64url(hash.slice(3)); } catch { throw new Error('The share link is damaged.'); }
+  try {
+    json = unb64url(hash.slice(3));
+  } catch {
+    throw new Error('The share link is damaged.');
+  }
   return deserialize(json);
 }

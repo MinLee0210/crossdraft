@@ -2,7 +2,11 @@
  * Typical prevailing winds, for teaching. NOT site data: real wind varies by street, height and year.
  * `deg` is where the wind comes FROM (0 = N, 90 = E).
  */
-export interface WindPreset { id: string; speed: number; deg: number }
+export interface WindPreset {
+  id: string;
+  speed: number;
+  deg: number;
+}
 
 export const WIND_PRESETS: WindPreset[] = [
   { id: 'ne-winter', speed: 3, deg: 45 },

@@ -22,7 +22,11 @@ export interface BoardRec {
   link?: number;
 }
 
-export interface Project { boards: BoardRec[]; active: number; world: WorldItem[] }
+export interface Project {
+  boards: BoardRec[];
+  active: number;
+  world: WorldItem[];
+}
 
 export const defaultBoardName = (n: number): string => `Board ${n}`;
 
@@ -38,7 +42,11 @@ const coord = (v: unknown): number => {
 /** Reads a project code. A single-board (v2) layout code is accepted and becomes a one-board project. */
 export function deserializeProject(str: string): Project {
   let o: any;
-  try { o = JSON.parse(str); } catch { throw new Error('Not valid JSON.'); }
+  try {
+    o = JSON.parse(str);
+  } catch {
+    throw new Error('Not valid JSON.');
+  }
   if (!o || o.app !== 'crossdraft') throw new Error('Not a Crossdraft code.');
   if (o.v !== PROJECT_VERSION) {
     const l: Layout = deserialize(str); // throws a readable error for other versions
@@ -80,6 +88,10 @@ export const toProjectHash = (p: Project): string => '#p=' + b64url(utf8(seriali
 export function fromProjectHash(hash: string): Project | null {
   if (!hash.startsWith('#p=') && !hash.startsWith('#l=')) return null;
   let json: string;
-  try { json = unutf8(unb64url(hash.slice(3))); } catch { throw new Error('The share link is damaged.'); }
+  try {
+    json = unutf8(unb64url(hash.slice(3)));
+  } catch {
+    throw new Error('The share link is damaged.');
+  }
   return deserializeProject(json);
 }

@@ -1,9 +1,7 @@
 /* World layer: notes and arrows drawn around the board. Pure illustration, never seen by the solver.
    Coordinates are metres from the board's top-left corner, so they survive changes of grid or cell size. */
 
-export type WorldItem =
-  | { k: 'text'; x: number; y: number; text: string }
-  | { k: 'arrow'; x: number; y: number; x2: number; y2: number };
+export type WorldItem = { k: 'text'; x: number; y: number; text: string } | { k: 'arrow'; x: number; y: number; x2: number; y2: number };
 
 export const WORLD_MAX_ITEMS = 200;
 export const TEXT_MAX = 120;
@@ -33,7 +31,9 @@ export function cleanWorld(raw: unknown): WorldItem[] {
 }
 
 const distSeg = (px: number, py: number, ax: number, ay: number, bx: number, by: number): number => {
-  const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+  const dx = bx - ax,
+    dy = by - ay,
+    L2 = dx * dx + dy * dy;
   const t = L2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2));
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 };

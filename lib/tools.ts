@@ -1,6 +1,12 @@
 import type { Tool } from './edit';
 
-export interface ToolDef { id: Tool; name: string; key: string; tip: string; icon: string }
+export interface ToolDef {
+  id: Tool;
+  name: string;
+  key: string;
+  tip: string;
+  icon: string;
+}
 
 export const TOOLS: ToolDef[] = [
   { id: 'select', name: 'Select', key: 'V', tip: 'Click a board to select it, drag it to move it', icon: 'M5 3l14 7-6 2-2 6z' },
@@ -10,15 +16,32 @@ export const TOOLS: ToolDef[] = [
   { id: 'block', name: 'Block', key: '4', tip: 'Solid block: neighbouring building, tree, furniture', icon: 'M5 6h14v12H5z' },
   { id: 'open', name: 'Opening', key: '5', tip: 'Cut a door or window: drag along a wall', icon: 'M3 12h4M10 12h4M17 12h4M3 8v8M21 8v8' },
   { id: 'fan', name: 'Fan', key: '6', tip: 'Place a fan. Press R to rotate', icon: 'M12 12h8M17 8l4 4-4 4M4 12a3.2 3.2 0 1 0 6.4 0 3.2 3.2 0 1 0-6.4 0' },
-  { id: 'heat', name: 'Heater', key: '7', tip: 'Heat source (drives flow in Section view)', icon: 'M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 .3 1.6 1 2 2 2 0-3-1-5 1-8z' },
+  {
+    id: 'heat',
+    name: 'Heater',
+    key: '7',
+    tip: 'Heat source (drives flow in Section view)',
+    icon: 'M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 .3 1.6 1 2 2 2 0-3-1-5 1-8z'
+  },
   { id: 'screen', name: 'Screen', key: '8', tip: 'Screen, plant or curtain: air passes through but slows down', icon: 'M5 5v14M10 5v14M15 5v14M20 5v14' },
   { id: 'erase', name: 'Erase', key: '9', tip: 'Erase. Right-click erases with any tool', icon: 'M7 17l-3-3 9-9 6 6-6 6H7zM11 19h9' },
   { id: 'text', name: 'Note', key: 'T', tip: 'Write a note anywhere around the board', icon: 'M5 6V4h14v2M12 4v16M9 20h6' },
   { id: 'arrow', name: 'Arrow', key: 'A', tip: 'Draw an arrow around the board. Hold Shift for 45 degree steps', icon: 'M5 19L19 5M9 5h10v10' },
-  { id: 'board', name: 'Board', key: 'B', tip: 'Drag a rectangle to add another board with its own wind', icon: 'M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M9 9h6v6H9z' }
+  {
+    id: 'board',
+    name: 'Board',
+    key: 'B',
+    tip: 'Drag a rectangle to add another board with its own wind',
+    icon: 'M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M9 9h6v6H9z'
+  }
 ];
 
-export const VIEWS = [['temp', 'Heat'], ['fresh', 'Fresh air'], ['speed', 'Speed'], ['age', 'Air age']] as const;
+export const VIEWS = [
+  ['temp', 'Heat'],
+  ['fresh', 'Fresh air'],
+  ['speed', 'Speed'],
+  ['age', 'Air age']
+] as const;
 export type View = (typeof VIEWS)[number][0];
 
 export const GRIDS = { s: [80, 54], m: [120, 80], l: [160, 106] } as const;

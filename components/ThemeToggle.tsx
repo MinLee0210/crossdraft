@@ -16,7 +16,9 @@ export function ThemeToggle() {
     try {
       const saved = localStorage.getItem(KEY);
       if (saved === 'light' || saved === 'dark') th = saved;
-    } catch { /* storage unavailable */ }
+    } catch {
+      /* storage unavailable */
+    }
     setTheme(th);
   }, []);
 
@@ -24,16 +26,37 @@ export function ThemeToggle() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
-    try { localStorage.setItem(KEY, next); } catch { /* ignore */ }
+    try {
+      localStorage.setItem(KEY, next);
+    } catch {
+      /* ignore */
+    }
   };
 
   const dark = theme === 'dark';
   return (
-    <button type="button" className="btn icon" onClick={toggle} disabled={theme === null}
-      aria-label={dark ? t('theme.toLight') : t('theme.toDark')} title={dark ? t('theme.toLight') : t('theme.toDark')}>
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <button
+      type="button"
+      className="btn icon"
+      onClick={toggle}
+      disabled={theme === null}
+      aria-label={dark ? t('theme.toLight') : t('theme.toDark')}
+      title={dark ? t('theme.toLight') : t('theme.toDark')}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         {dark ? (
-          <>{/* sun: shown in dark mode, click for light */}
+          <>
+            {/* sun: shown in dark mode, click for light */}
             <circle cx="12" cy="12" r="4" />
             <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
           </>

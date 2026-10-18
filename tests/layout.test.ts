@@ -16,7 +16,8 @@ describe('layout codes', () => {
   });
 
   it('round-trips a layout, including fan direction', () => {
-    const s = sample(), back = deserialize(serialize(s));
+    const s = sample(),
+      back = deserialize(serialize(s));
     expect(back).toEqual(s);
     expect(decodeCell(back.types[100])).toEqual({ type: T_FAN, fdir: 5 });
   });
