@@ -12,7 +12,10 @@ import { summarise } from '@/lib/sweep';
 import { useT } from './I18n';
 import { WindRose } from './WindRose';
 
-interface Props { engine: Engine; ui: UiState }
+interface Props {
+  engine: Engine;
+  ui: UiState;
+}
 
 /* ------------------------------------------------------------------ wind */
 function Dial({ engine, ui }: Props) {
@@ -21,25 +24,63 @@ function Dial({ engine, ui }: Props) {
   const down = useRef(false);
   const { speed, deg, ex, ey } = ui.wind;
   const set = (e: React.PointerEvent) => {
-    const r = svg.current!.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), L = Math.hypot(dx, dy);
+    const r = svg.current!.getBoundingClientRect(),
+      dx = e.clientX - (r.left + r.width / 2),
+      dy = e.clientY - (r.top + r.height / 2),
+      L = Math.hypot(dx, dy);
     if (L < 6) return;
-    let d = (Math.atan2(-dx / L, dy / L) * 180) / Math.PI; d = ((d % 360) + 360) % 360;
+    let d = (Math.atan2(-dx / L, dy / L) * 180) / Math.PI;
+    d = ((d % 360) + 360) % 360;
     if (!e.shiftKey) d = Math.round(d / 5) * 5;
     engine.setWind(speed, d % 360);
   };
   const r = Math.atan2(ey, ex);
   const ang = Math.abs(ex) + Math.abs(ey) > 1e-6 ? r : Math.atan2(Math.cos((deg * Math.PI) / 180), -Math.sin((deg * Math.PI) / 180));
   return (
-    <svg ref={svg} id="dial" viewBox="0 0 120 120" role="img" aria-label={t('wind.dial')}
+    <svg
+      ref={svg}
+      id="dial"
+      viewBox="0 0 120 120"
+      role="img"
+      aria-label={t('wind.dial')}
       style={{ cursor: down.current ? 'grabbing' : 'grab' }}
-      onPointerDown={(e) => { down.current = true; try { svg.current!.setPointerCapture(e.pointerId); } catch { /* ignore */ } set(e); }}
-      onPointerMove={(e) => { if (down.current) set(e); }}
-      onPointerUp={() => { down.current = false; }} onPointerCancel={() => { down.current = false; }}>
+      onPointerDown={(e) => {
+        down.current = true;
+        try {
+          svg.current!.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        set(e);
+      }}
+      onPointerMove={(e) => {
+        if (down.current) set(e);
+      }}
+      onPointerUp={() => {
+        down.current = false;
+      }}
+      onPointerCancel={() => {
+        down.current = false;
+      }}
+    >
       <circle className="ring" cx="60" cy="60" r="52" />
       <path className="tick" d="M60 8v8M60 104v8M8 60h8M104 60h8" />
-      <text x="60" y="26">N</text><text x="96" y="61">E</text><text x="60" y="95">S</text><text x="24" y="61">W</text>
+      <text x="60" y="26">
+        N
+      </text>
+      <text x="96" y="61">
+        E
+      </text>
+      <text x="60" y="95">
+        S
+      </text>
+      <text x="24" y="61">
+        W
+      </text>
       <g transform={`rotate(${(ang * 180) / Math.PI} 60 60)`} style={{ opacity: speed < 0.05 ? 0.35 : 1 }}>
-        <path className="arrow" d="M60 60H92" /><path className="head" d="M100 60l-10-6v12z" /><circle className="knob" cx="60" cy="60" r="4" />
+        <path className="arrow" d="M60 60H92" />
+        <path className="head" d="M100 60l-10-6v12z" />
+        <circle className="knob" cx="60" cy="60" r="4" />
       </g>
     </svg>
   );
@@ -47,7 +88,8 @@ function Dial({ engine, ui }: Props) {
 
 function Wind({ engine, ui }: Props) {
   const t = useT();
-  const { speed, deg, ex } = ui.wind, sec = ui.mode === 'section';
+  const { speed, deg, ex } = ui.wind,
+    sec = ui.mode === 'section';
   const matched = WIND_PRESETS.find((p) => p.speed === speed && p.deg === deg)?.id ?? '';
   return (
     <section className="blk">
@@ -55,20 +97,46 @@ function Wind({ engine, ui }: Props) {
       <div className="windrow">
         <Dial engine={engine} ui={ui} />
         <div className="wctl">
-          <div className="big mono">{compass(deg)} {Math.round(deg)}&deg;</div>
+          <div className="big mono">
+            {compass(deg)} {Math.round(deg)}&deg;
+          </div>
           <div className="muted">{speed < 0.05 ? t('wind.none') : t('wind.blowsTo', { dir: compass(deg + 180) })}</div>
           <div className="muted">{t(beaufort(speed)) + (sec && Math.abs(ex) < 1e-3 ? t('wind.calmSection') : '')}</div>
         </div>
       </div>
-      <label className="fld"><span>{t('wind.typical')}</span>
-        <select value={matched} onChange={(e) => { const p = WIND_PRESETS.find((q) => q.id === e.target.value); if (p) engine.setWind(p.speed, p.deg); }}>
-          <option value="" disabled>{t('wind.choose')}</option>
-          {WIND_PRESETS.map((p) => <option key={p.id} value={p.id}>{t('wind.' + p.id)}</option>)}
-        </select></label>
-      <label className="fld"><span className="top2"><span>{t('wind.dir')}</span><output>{Math.round(deg)}°</output></span>
-        <input type="range" min={0} max={359} step={1} value={Math.round(deg)} onChange={(e) => engine.setWind(speed, +e.target.value)} /></label>
-      <label className="fld"><span className="top2"><span>{t('wind.speed')}</span><output>{fmt(speed, 1)} m/s</output></span>
-        <input type="range" min={0} max={12} step={0.1} value={speed} onChange={(e) => engine.setWind(+e.target.value, deg)} /></label>
+      <label className="fld">
+        <span>{t('wind.typical')}</span>
+        <select
+          value={matched}
+          onChange={(e) => {
+            const p = WIND_PRESETS.find((q) => q.id === e.target.value);
+            if (p) engine.setWind(p.speed, p.deg);
+          }}
+        >
+          <option value="" disabled>
+            {t('wind.choose')}
+          </option>
+          {WIND_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {t('wind.' + p.id)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="fld">
+        <span className="top2">
+          <span>{t('wind.dir')}</span>
+          <output>{Math.round(deg)}°</output>
+        </span>
+        <input type="range" min={0} max={359} step={1} value={Math.round(deg)} onChange={(e) => engine.setWind(speed, +e.target.value)} />
+      </label>
+      <label className="fld">
+        <span className="top2">
+          <span>{t('wind.speed')}</span>
+          <output>{fmt(speed, 1)} m/s</output>
+        </span>
+        <input type="range" min={0} max={12} step={0.1} value={speed} onChange={(e) => engine.setWind(+e.target.value, deg)} />
+      </label>
       <p className="hint">{sec ? t('wind.hintSection') : t('wind.hintPlan')}</p>
       <p className="hint">{t('wind.typicalNote')}</p>
     </section>
@@ -79,17 +147,29 @@ function Wind({ engine, ui }: Props) {
 function Overlays({ engine, ui }: Props) {
   const t = useT();
   const chk = (k: 'particles' | 'arrows' | 'dead' | 'labels', label: string) => (
-    <label className="chk"><input type="checkbox" checked={ui[k]} onChange={(e) => engine.setOverlay(k, e.target.checked)} /> {label}</label>
+    <label className="chk">
+      <input type="checkbox" checked={ui[k]} onChange={(e) => engine.setOverlay(k, e.target.checked)} /> {label}
+    </label>
   );
   return (
     <section className="blk">
       <h2>{t('ov.title')}</h2>
       <div className="row2">
-        {chk('particles', t('ov.streaks'))}{chk('arrows', t('ov.arrows'))}{chk('dead', t('ov.dead'))}{chk('labels', t('ov.labels'))}
-        <label className="chk"><input type="checkbox" checked={ui.phongThuy} onChange={(e) => engine.setPhongThuy(e.target.checked)} /> {t('ov.pt')}</label>
+        {chk('particles', t('ov.streaks'))}
+        {chk('arrows', t('ov.arrows'))}
+        {chk('dead', t('ov.dead'))}
+        {chk('labels', t('ov.labels'))}
+        <label className="chk">
+          <input type="checkbox" checked={ui.phongThuy} onChange={(e) => engine.setPhongThuy(e.target.checked)} /> {t('ov.pt')}
+        </label>
       </div>
-      <label className="fld"><span className="top2"><span>{t('ov.thr')}</span><output>{fmt(ui.deadThr, 2)} m/s</output></span>
-        <input type="range" min={0.02} max={0.5} step={0.01} value={ui.deadThr} onChange={(e) => engine.setDeadThr(+e.target.value)} /></label>
+      <label className="fld">
+        <span className="top2">
+          <span>{t('ov.thr')}</span>
+          <output>{fmt(ui.deadThr, 2)} m/s</output>
+        </span>
+        <input type="range" min={0.02} max={0.5} step={0.01} value={ui.deadThr} onChange={(e) => engine.setDeadThr(+e.target.value)} />
+      </label>
     </section>
   );
 }
@@ -104,24 +184,49 @@ function FengShui({ ui }: Pick<Props, 'ui'>) {
   return (
     <section className="blk">
       <h2>{t('fs.title')}</h2>
-      <p className="note"><b>{t('fs.disclaimer', { n: 4 })}</b></p>
+      <p className="note">
+        <b>{t('fs.disclaimer', { n: 4 })}</b>
+      </p>
       {!fs && <p className="note">{ui.mode === 'section' ? t('fs.needPlan') : t('fs.noRooms')}</p>}
-      {fs && fs.rules.map((r) => (
-        <details key={r.id} className={'fsrule fs-' + r.status} open={r.status === 'attention'}>
-          <summary><span className="fsmark" aria-hidden="true">{FS_MARK[r.status]}</span><span className="fstitle">{t(`fs.${r.id}.title`)}</span><span className="fsstat">{t('fs.status.' + r.status)}</span></summary>
-          <p className="note"><b>{t(r.key, r.vars)}</b></p>
-          {r.more && <p className="note">{t(r.more.key, r.more.vars)}</p>}
-          <p className="note">{t(`fs.${r.id}.tradition`)}</p>
-          <p className="note fssrc">{t('fs.sources')}{' '}
-            {FS_SOURCES[r.id].map((src, i) => <span key={src.url}>{i > 0 && '; '}<a href={src.url} target="_blank" rel="noopener noreferrer">{src.title}</a></span>)}
-          </p>
-          <p className="note">{t(`fs.${r.id}.physics`)}</p>
-        </details>
-      ))}
+      {fs &&
+        fs.rules.map((r) => (
+          <details key={r.id} className={'fsrule fs-' + r.status} open={r.status === 'attention'}>
+            <summary>
+              <span className="fsmark" aria-hidden="true">
+                {FS_MARK[r.status]}
+              </span>
+              <span className="fstitle">{t(`fs.${r.id}.title`)}</span>
+              <span className="fsstat">{t('fs.status.' + r.status)}</span>
+            </summary>
+            <p className="note">
+              <b>{t(r.key, r.vars)}</b>
+            </p>
+            {r.more && <p className="note">{t(r.more.key, r.more.vars)}</p>}
+            <p className="note">{t(`fs.${r.id}.tradition`)}</p>
+            <p className="note fssrc">
+              {t('fs.sources')}{' '}
+              {FS_SOURCES[r.id].map((src, i) => (
+                <span key={src.url}>
+                  {i > 0 && '; '}
+                  <a href={src.url} target="_blank" rel="noopener noreferrer">
+                    {src.title}
+                  </a>
+                </span>
+              ))}
+            </p>
+            <p className="note">{t(`fs.${r.id}.physics`)}</p>
+          </details>
+        ))}
       {fs && (
         <details className="fsrule">
-          <summary><span className="fstitle">{t('fs.nc.title')}</span></summary>
-          <ul className="fsnc">{fs.notChecked.map((id) => <li key={id}>{t(`fs.nc.${id}`)}</li>)}</ul>
+          <summary>
+            <span className="fstitle">{t('fs.nc.title')}</span>
+          </summary>
+          <ul className="fsnc">
+            {fs.notChecked.map((id) => (
+              <li key={id}>{t(`fs.nc.${id}`)}</li>
+            ))}
+          </ul>
         </details>
       )}
     </section>
@@ -133,7 +238,8 @@ const SWEEP_SECONDS = [30, 60, 120];
 
 function Sweep({ engine, ui }: Props) {
   const t = useT();
-  const res = ui.sweepResult, sum = res ? summarise(res.rows) : null;
+  const res = ui.sweepResult,
+    sum = res ? summarise(res.rows) : null;
   const label = (r: { deg: number }) => `${compass(r.deg)} ${Math.round(r.deg)}°`;
   const ranked = res ? [...res.rows].filter((r) => r.score).sort((a, b) => b.score!.score - a.score!.score) : [];
   return (
@@ -141,38 +247,77 @@ function Sweep({ engine, ui }: Props) {
       <h2>{t('sweep.title')}</h2>
       <p className="hint">{t('sweep.hint')}</p>
       <div className="row2">
-        <label className="fld"><span>{t('sweep.dirs')}</span>
+        <label className="fld">
+          <span>{t('sweep.dirs')}</span>
           <select value={ui.sweepCount} disabled={!!ui.sweep} onChange={(e) => engine.setSweepOptions(+e.target.value as 8 | 16, ui.sweepSec)}>
-            <option value={8}>8</option><option value={16}>16</option></select></label>
-        <label className="fld"><span>{t('sweep.len')}</span>
+            <option value={8}>8</option>
+            <option value={16}>16</option>
+          </select>
+        </label>
+        <label className="fld">
+          <span>{t('sweep.len')}</span>
           <select value={ui.sweepSec} disabled={!!ui.sweep} onChange={(e) => engine.setSweepOptions(ui.sweepCount, +e.target.value)}>
-            {SWEEP_SECONDS.map((v) => <option key={v} value={v}>{v} s</option>)}</select></label>
+            {SWEEP_SECONDS.map((v) => (
+              <option key={v} value={v}>
+                {v} s
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       {ui.sweep ? (
         <div>
-          <div className="bar"><i style={{ width: (ui.sweep.progress * 100).toFixed(1) + '%' }} /></div>
+          <div className="bar">
+            <i style={{ width: (ui.sweep.progress * 100).toFixed(1) + '%' }} />
+          </div>
           <div className="btnrow" style={{ marginTop: 6, alignItems: 'center' }}>
             <span className="note">{t('sweep.running', { i: ui.sweep.index + 1, n: ui.sweep.total, dir: label({ deg: ui.sweep.deg }) })}</span>
-            <button type="button" className="btn sm" onClick={engine.cancelSweep}>{t('cmp.cancel')}</button>
+            <button type="button" className="btn sm" onClick={engine.cancelSweep}>
+              {t('cmp.cancel')}
+            </button>
           </div>
         </div>
       ) : (
-        <div className="btnrow"><button type="button" className="btn sm" onClick={engine.startSweep}>{t('sweep.run')}</button></div>
+        <div className="btnrow">
+          <button type="button" className="btn sm" onClick={engine.startSweep}>
+            {t('sweep.run')}
+          </button>
+        </div>
       )}
       {ui.sweepMsg && <p className="note">{ui.sweepMsg}</p>}
       {res && sum && (
         <>
           <WindRose rows={res.rows} onPick={(deg) => engine.setWind(res.speed, deg)} />
-          <p className="note"><b>{t('sweep.summary', { best: label(sum.best), bs: sum.best.score!.score, worst: label(sum.worst), ws: sum.worst.score!.score, spread: sum.spread })}</b></p>
+          <p className="note">
+            <b>
+              {t('sweep.summary', {
+                best: label(sum.best),
+                bs: sum.best.score!.score,
+                worst: label(sum.worst),
+                ws: sum.worst.score!.score,
+                spread: sum.spread
+              })}
+            </b>
+          </p>
           {sum.spread >= 25 && <p className="note">{t('sweep.sensitive')}</p>}
           {sum.spread < 10 && <p className="note">{t('sweep.robust')}</p>}
           <div className="tablewrap">
             <table className="m">
-              <thead><tr><th>{t('sweep.from')}</th><th>{t('cmp.score')}</th><th>{t('tbl.fresh')}</th><th>{t('tbl.dead')}</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>{t('sweep.from')}</th>
+                  <th>{t('cmp.score')}</th>
+                  <th>{t('tbl.fresh')}</th>
+                  <th>{t('tbl.dead')}</th>
+                </tr>
+              </thead>
               <tbody>
                 {ranked.map((r) => (
                   <tr key={r.deg} className="clickrow" onClick={() => engine.setWind(res.speed, r.deg)}>
-                    <td>{label(r)}</td><td>{r.score!.score}</td><td>{pct(r.score!.flush)}</td><td>{pct(r.score!.dead)}</td>
+                    <td>{label(r)}</td>
+                    <td>{r.score!.score}</td>
+                    <td>{pct(r.score!.flush)}</td>
+                    <td>{pct(r.score!.dead)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -199,27 +344,70 @@ function Rooms({ ui }: Pick<Props, 'ui'>) {
   return (
     <section className="blk">
       <h2>{t('rooms.title')}</h2>
-      <div className="score"><span className="num">{sc ? sc.score : '--'}</span><span className="of">{t('rooms.of')}</span><span className={chip.cls}>{chip.text}</span></div>
-      <div className="bar" aria-hidden="true"><i style={{ width: sc ? sc.score + '%' : 0 }} /></div>
+      <div className="score">
+        <span className="num">{sc ? sc.score : '--'}</span>
+        <span className="of">{t('rooms.of')}</span>
+        <span className={chip.cls}>{chip.text}</span>
+      </div>
+      <div className="bar" aria-hidden="true">
+        <i style={{ width: sc ? sc.score + '%' : 0 }} />
+      </div>
       <div className="kpis">
-        <div className="kpi"><span>{t('kpi.flush')}</span><b>{sc ? pct(sc.flush) : '-'}</b></div>
-        <div className="kpi"><span>{t('kpi.dead')}</span><b>{sc ? pct(sc.dead) : '-'}</b></div>
-        <div className="kpi"><span>{t('kpi.comfort')}</span><b>{sc ? pct(sc.comfort) : '-'}</b></div>
-        <div className="kpi"><span>{t('kpi.age')}</span><b>{sc ? fmt(sc.age, 0) + ' s' : '-'}</b></div>
+        <div className="kpi">
+          <span>{t('kpi.flush')}</span>
+          <b>{sc ? pct(sc.flush) : '-'}</b>
+        </div>
+        <div className="kpi">
+          <span>{t('kpi.dead')}</span>
+          <b>{sc ? pct(sc.dead) : '-'}</b>
+        </div>
+        <div className="kpi">
+          <span>{t('kpi.comfort')}</span>
+          <b>{sc ? pct(sc.comfort) : '-'}</b>
+        </div>
+        <div className="kpi">
+          <span>{t('kpi.age')}</span>
+          <b>{sc ? fmt(sc.age, 0) + ' s' : '-'}</b>
+        </div>
       </div>
       {ui.insights.length > 0 && (
         <div className="insights" aria-live="polite">
           <h3>{t('insight.title')}</h3>
-          <ul>{ui.insights.map((i, k) => <li key={i.key + k} className={'ins-' + i.tone}>{t(i.key, i.vars)}</li>)}</ul>
+          <ul>
+            {ui.insights.map((i, k) => (
+              <li key={i.key + k} className={'ins-' + i.tone}>
+                {t(i.key, i.vars)}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       <div className="tablewrap">
         <table className="m">
-          <thead><tr><th>{t('tbl.room')}</th><th>m&sup2;</th><th>m/s</th><th>{t('tbl.dead')}</th><th>{t('tbl.fresh')}</th><th>+K</th><th>T90</th></tr></thead>
+          <thead>
+            <tr>
+              <th>{t('tbl.room')}</th>
+              <th>m&sup2;</th>
+              <th>m/s</th>
+              <th>{t('tbl.dead')}</th>
+              <th>{t('tbl.fresh')}</th>
+              <th>+K</th>
+              <th>T90</th>
+            </tr>
+          </thead>
           <tbody>
-            {sc && ui.stats.map((r) => (
-              <tr key={r.id}><td>{r.name}</td><td>{fmt(r.area, 0)}</td><td>{fmt(r.speed, 2)}</td><td>{pct(r.dead)}</td><td>{pct(r.fresh)}</td><td>{fmt(r.temp, 1)}</td><td>{r.t90 === null ? '-' : fmt(r.t90, 0) + ' s'}</td></tr>
-            ))}
+            {sc &&
+              ui.stats.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.name}</td>
+                  <td>{fmt(r.area, 0)}</td>
+                  <td>{fmt(r.speed, 2)}</td>
+                  <td>{pct(r.dead)}</td>
+                  <td>{pct(r.fresh)}</td>
+                  <td>{fmt(r.temp, 1)}</td>
+                  <td>{r.t90 === null ? '-' : fmt(r.t90, 0) + ' s'}</td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -230,7 +418,13 @@ function Rooms({ ui }: Pick<Props, 'ui'>) {
 }
 
 /* --------------------------------------------------------------- compare */
-interface Metric { label: string; get: (r: TestResult) => number; show: (v: number) => string; good: 1 | -1 | 0; kind: 'pct' | 'score' | 'speed' | 'secs' | 't90' }
+interface Metric {
+  label: string;
+  get: (r: TestResult) => number;
+  show: (v: number) => string;
+  good: 1 | -1 | 0;
+  kind: 'pct' | 'score' | 'speed' | 'secs' | 't90';
+}
 const METRICS: Metric[] = [
   { label: 'cmp.score', get: (r) => r.sc!.score, show: (v) => fmt(v, 0), good: 1, kind: 'score' },
   { label: 'cmp.flush', get: (r) => r.sc!.flush, show: pct, good: 1, kind: 'pct' },
@@ -245,14 +439,17 @@ function delta(m: Metric, A: TestResult, B: TestResult, t: (k: string) => string
   if (m.kind === 't90' && A.sc!.worstT90 === null && B.sc!.worstT90 === null) return <span className="muted">-</span>;
   const dv = m.get(B) - m.get(A);
   if (Math.abs(dv) < 1e-9) return <span className="muted">{t('cmp.same')}</span>;
-  const txt = (dv > 0 ? '+' : '') + (m.kind === 'pct' ? Math.round(dv * 100) + ' ' + t('cmp.pts') : m.kind === 'score' ? fmt(dv, 0) : m.kind === 'speed' ? fmt(dv, 2) : fmt(dv, 0) + ' s');
+  const txt =
+    (dv > 0 ? '+' : '') +
+    (m.kind === 'pct' ? Math.round(dv * 100) + ' ' + t('cmp.pts') : m.kind === 'score' ? fmt(dv, 0) : m.kind === 'speed' ? fmt(dv, 2) : fmt(dv, 0) + ' s');
   const cls = m.good === 0 ? 'muted' : dv * m.good > 0 ? 'good' : 'bad';
   return <span className={cls}>{txt}</span>;
 }
 
 function Compare({ engine, ui }: Props) {
   const t = useT();
-  const { A, B } = ui.slots, testing = ui.test;
+  const { A, B } = ui.slots,
+    testing = ui.test;
   const cell = (m: Metric, r: TestResult | null) => {
     if (!r || !r.sc) return '-';
     if (m.kind === 't90' && r.sc.worstT90 === null) return '> ' + fmt(r.T, 0) + ' s';
@@ -264,20 +461,38 @@ function Compare({ engine, ui }: Props) {
       <h2>{t('cmp.title')}</h2>
       <p className="hint">{t('cmp.hint')}</p>
       <div className="row2">
-        <label className="fld"><span>{t('cmp.length')}</span>
-          <select value={ui.testT} onChange={(e) => engine.setTestT(+e.target.value)}>{[60, 120, 180, 300].map((v) => <option key={v} value={v}>{v} s</option>)}</select></label>
-        <div className="fld"><span>&nbsp;</span>
+        <label className="fld">
+          <span>{t('cmp.length')}</span>
+          <select value={ui.testT} onChange={(e) => engine.setTestT(+e.target.value)}>
+            {[60, 120, 180, 300].map((v) => (
+              <option key={v} value={v}>
+                {v} s
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="fld">
+          <span>&nbsp;</span>
           <div className="btnrow">
-            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('A')}>{t('cmp.testA')}</button>
-            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('B')}>{t('cmp.testB')}</button>
-          </div></div>
+            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('A')}>
+              {t('cmp.testA')}
+            </button>
+            <button type="button" className="btn sm" disabled={!!testing} onClick={() => engine.startTest('B')}>
+              {t('cmp.testB')}
+            </button>
+          </div>
+        </div>
       </div>
       {testing && (
         <div>
-          <div className="bar"><i style={{ width: Math.min(100, (ui.t / testing.T) * 100).toFixed(1) + '%' }} /></div>
+          <div className="bar">
+            <i style={{ width: Math.min(100, (ui.t / testing.T) * 100).toFixed(1) + '%' }} />
+          </div>
           <div className="btnrow" style={{ marginTop: 6, alignItems: 'center' }}>
             <span className="note">{t('cmp.testing', { slot: testing.slot, t: fmt(ui.t, 0), T: testing.T })}</span>
-            <button type="button" className="btn sm" onClick={engine.cancelTest}>{t('cmp.cancel')}</button>
+            <button type="button" className="btn sm" onClick={engine.cancelTest}>
+              {t('cmp.cancel')}
+            </button>
           </div>
         </div>
       )}
@@ -285,19 +500,40 @@ function Compare({ engine, ui }: Props) {
       {(A || B) && (
         <div className="tablewrap">
           <table className="m">
-            <thead><tr><th></th><th>A</th><th>B</th><th>{t('cmp.vs')}</th></tr></thead>
+            <thead>
+              <tr>
+                <th></th>
+                <th>A</th>
+                <th>B</th>
+                <th>{t('cmp.vs')}</th>
+              </tr>
+            </thead>
             <tbody>
               {METRICS.map((m) => (
-                <tr key={m.label}><td>{t(m.label)}</td><td>{cell(m, A)}</td><td>{cell(m, B)}</td><td>{A?.sc && B?.sc ? delta(m, A, B, t) : null}</td></tr>
+                <tr key={m.label}>
+                  <td>{t(m.label)}</td>
+                  <td>{cell(m, A)}</td>
+                  <td>{cell(m, B)}</td>
+                  <td>{A?.sc && B?.sc ? delta(m, A, B, t) : null}</td>
+                </tr>
               ))}
-              <tr><td>{t('cmp.wind')}</td><td>{wind(A)}</td><td>{wind(B)}</td><td></td></tr>
+              <tr>
+                <td>{t('cmp.wind')}</td>
+                <td>{wind(A)}</td>
+                <td>{wind(B)}</td>
+                <td></td>
+              </tr>
             </tbody>
           </table>
         </div>
       )}
       <div className="btnrow">
-        <button type="button" className="btn sm" disabled={!A} onClick={() => engine.loadSlot('A')}>{t('cmp.loadA')}</button>
-        <button type="button" className="btn sm" disabled={!B} onClick={() => engine.loadSlot('B')}>{t('cmp.loadB')}</button>
+        <button type="button" className="btn sm" disabled={!A} onClick={() => engine.loadSlot('A')}>
+          {t('cmp.loadA')}
+        </button>
+        <button type="button" className="btn sm" disabled={!B} onClick={() => engine.loadSlot('B')}>
+          {t('cmp.loadB')}
+        </button>
       </div>
     </section>
   );
@@ -308,18 +544,44 @@ function BoardRow({ engine, b, last }: { engine: Engine; b: UiState['boards'][nu
   const t = useT();
   const [name, setName] = useState(b.name);
   useEffect(() => setName(b.name), [b.name]);
-  const commit = () => { if (name.trim() && name !== b.name) engine.renameBoard(b.id, name); else setName(b.name); };
+  const commit = () => {
+    if (name.trim() && name !== b.name) engine.renameBoard(b.id, name);
+    else setName(b.name);
+  };
   return (
     <li className={b.active ? 'on' : ''}>
       <div className="boardrow">
-        <button type="button" className="pick" aria-pressed={b.active} aria-label={`${t('boards.title')}: ${b.name}`} onClick={() => engine.selectBoard(b.id)} />
-        <input value={name} maxLength={60} aria-label={t('boards.name')} onChange={(e) => setName(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+        <button
+          type="button"
+          className="pick"
+          aria-pressed={b.active}
+          aria-label={`${t('boards.title')}: ${b.name}`}
+          onClick={() => engine.selectBoard(b.id)}
+        />
+        <input
+          value={name}
+          maxLength={60}
+          aria-label={t('boards.name')}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+        />
       </div>
-      <div className="note mono">{fmt(b.w, 1)} × {fmt(b.h, 1)} m · {t('boards.' + b.mode)}</div>
+      <div className="note mono">
+        {fmt(b.w, 1)} × {fmt(b.h, 1)} m · {t('boards.' + b.mode)}
+      </div>
       <div className="btnrow">
-        <button type="button" className="btn sm" onClick={() => engine.focusBoard(b.id)}>{t('boards.focus')}</button>
-        <button type="button" className="btn sm" onClick={() => engine.duplicateBoard(b.id)}>{t('boards.duplicate')}</button>
-        <button type="button" className="btn sm" disabled={last} onClick={() => engine.deleteBoard(b.id)}>{t('boards.delete')}</button>
+        <button type="button" className="btn sm" onClick={() => engine.focusBoard(b.id)}>
+          {t('boards.focus')}
+        </button>
+        <button type="button" className="btn sm" onClick={() => engine.duplicateBoard(b.id)}>
+          {t('boards.duplicate')}
+        </button>
+        <button type="button" className="btn sm" disabled={last} onClick={() => engine.deleteBoard(b.id)}>
+          {t('boards.delete')}
+        </button>
       </div>
     </li>
   );
@@ -331,34 +593,97 @@ function Boards({ engine, ui }: Props) {
     <section className="blk">
       <h2>{t('boards.title')}</h2>
       <p className="hint">{t('boards.hint')}</p>
-      <ul className="boardlist">{ui.boards.map((b) => <BoardRow key={b.id} engine={engine} b={b} last={ui.boards.length < 2} />)}</ul>
-      <div className="btnrow"><button type="button" className="btn sm" disabled={ui.boards.length >= MAX_BOARDS} onClick={engine.newBoard}>{t('boards.new')}</button></div>
+      <ul className="boardlist">
+        {ui.boards.map((b) => (
+          <BoardRow key={b.id} engine={engine} b={b} last={ui.boards.length < 2} />
+        ))}
+      </ul>
+      <div className="btnrow">
+        <button type="button" className="btn sm" disabled={ui.boards.length >= MAX_BOARDS} onClick={engine.newBoard}>
+          {t('boards.new')}
+        </button>
+      </div>
       <p className="note">{t('boards.max', { n: MAX_BOARDS })}</p>
-      <div className="btnrow"><button type="button" className="btn sm" onClick={() => { if (window.confirm(t('boards.resetConfirm'))) engine.resetProject(); }}>{t('boards.reset')}</button></div>
+      <div className="btnrow">
+        <button
+          type="button"
+          className="btn sm"
+          onClick={() => {
+            if (window.confirm(t('boards.resetConfirm'))) engine.resetProject();
+          }}
+        >
+          {t('boards.reset')}
+        </button>
+      </div>
     </section>
   );
 }
 
 /* ----------------------------------------------------------------- board */
-function BoardField({ label, value, min, max, disabled, onCommit }: { label: string; value: number; min: number; max: number; disabled: boolean; onCommit: (v: number) => void }) {
+function BoardField({
+  label,
+  value,
+  min,
+  max,
+  disabled,
+  onCommit
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  disabled: boolean;
+  onCommit: (v: number) => void;
+}) {
   const [text, setText] = useState<string | null>(null);
-  const commit = () => { const v = parseFloat(text ?? ''); setText(null); if (Number.isFinite(v)) onCommit(v); };
+  const commit = () => {
+    const v = parseFloat(text ?? '');
+    setText(null);
+    if (Number.isFinite(v)) onCommit(v);
+  };
   return (
-    <label className="fld"><span>{label}</span>
-      <input type="number" step={0.5} min={min} max={max} disabled={disabled} value={text ?? String(Math.round(value * 10) / 10)}
-        onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+    <label className="fld">
+      <span>{label}</span>
+      <input
+        type="number"
+        step={0.5}
+        min={min}
+        max={max}
+        disabled={disabled}
+        value={text ?? String(Math.round(value * 10) / 10)}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+      />
     </label>
   );
 }
 
 function Board({ engine, ui }: Props) {
   const t = useT();
-  const c = ui.cellSize, sec = ui.mode === 'section';
+  const c = ui.cellSize,
+    sec = ui.mode === 'section';
   return (
     <>
       <div className="row2">
-        <BoardField label={t('board.w')} value={ui.W * c} min={GRID_MIN.W * c} max={GRID_MAX.W * c} disabled={sec} onCommit={(v) => engine.setBoard(v, ui.H * c)} />
-        <BoardField label={t('board.h')} value={ui.H * c} min={GRID_MIN.H * c} max={GRID_MAX.H * c} disabled={sec} onCommit={(v) => engine.setBoard(ui.W * c, v)} />
+        <BoardField
+          label={t('board.w')}
+          value={ui.W * c}
+          min={GRID_MIN.W * c}
+          max={GRID_MAX.W * c}
+          disabled={sec}
+          onCommit={(v) => engine.setBoard(v, ui.H * c)}
+        />
+        <BoardField
+          label={t('board.h')}
+          value={ui.H * c}
+          min={GRID_MIN.H * c}
+          max={GRID_MAX.H * c}
+          disabled={sec}
+          onCommit={(v) => engine.setBoard(ui.W * c, v)}
+        />
       </div>
       <p className="hint">{sec ? t('board.noteSection') : t('board.note')}</p>
     </>
@@ -377,17 +702,39 @@ function Layouts({ engine, ui }: Props) {
     <section className="blk">
       <h2>{t('lay.title')}</h2>
       <div className="row2">
-        <label className="fld"><span>{t('lay.example')}</span>
-          <select value={current.id} onChange={(e) => setPicked(e.target.value)}>{presets.map((p) => <option key={p.id} value={p.id}>{t(`preset.${p.id}.name`)}</option>)}</select></label>
-        <div className="fld"><span>&nbsp;</span><button type="button" className="btn sm" onClick={() => engine.loadPreset(current.id)}>{t('lay.load')}</button></div>
-        <label className="fld"><span>{t('lay.cell')}</span>
-          <select value={ui.cellSize} onChange={(e) => engine.setCellSize(+e.target.value)}>{cells.map((c) => <option key={c} value={c}>{c.toFixed(c === 0.125 ? 3 : 2)} m</option>)}</select></label>
+        <label className="fld">
+          <span>{t('lay.example')}</span>
+          <select value={current.id} onChange={(e) => setPicked(e.target.value)}>
+            {presets.map((p) => (
+              <option key={p.id} value={p.id}>
+                {t(`preset.${p.id}.name`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="fld">
+          <span>&nbsp;</span>
+          <button type="button" className="btn sm" onClick={() => engine.loadPreset(current.id)}>
+            {t('lay.load')}
+          </button>
+        </div>
+        <label className="fld">
+          <span>{t('lay.cell')}</span>
+          <select value={ui.cellSize} onChange={(e) => engine.setCellSize(+e.target.value)}>
+            {cells.map((c) => (
+              <option key={c} value={c}>
+                {c.toFixed(c === 0.125 ? 3 : 2)} m
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <Board engine={engine} ui={ui} />
-      <p className="note"><b>{t('lay.notice')}</b> {t(`preset.${current.id}.note`)}</p>
+      <p className="note">
+        <b>{t('lay.notice')}</b> {t(`preset.${current.id}.note`)}
+      </p>
       <p className="hint">
-        {t('lay.domain', { w: fmt(ui.W * ui.cellSize, 1), h: fmt(ui.H * ui.cellSize, 1) })}{' '}
-        {ui.mode === 'section' ? t('lay.section') : t('lay.plan')}
+        {t('lay.domain', { w: fmt(ui.W * ui.cellSize, 1), h: fmt(ui.H * ui.cellSize, 1) })} {ui.mode === 'section' ? t('lay.section') : t('lay.plan')}
       </p>
     </section>
   );
@@ -411,8 +758,13 @@ function Physics({ engine, ui }: Props) {
       <summary>{t('phys.title')}</summary>
       <div className="row2">
         {PHYS.map((p) => (
-          <label key={p.k} className="fld"><span className="top2"><span>{t(p.label)}</span><output>{p.out(ui.phys[p.k])}</output></span>
-            <input type="range" min={p.min} max={p.max} step={p.step} value={ui.phys[p.k]} onChange={(e) => engine.setPhys(p.k, +e.target.value)} /></label>
+          <label key={p.k} className="fld">
+            <span className="top2">
+              <span>{t(p.label)}</span>
+              <output>{p.out(ui.phys[p.k])}</output>
+            </span>
+            <input type="range" min={p.min} max={p.max} step={p.step} value={ui.phys[p.k]} onChange={(e) => engine.setPhys(p.k, +e.target.value)} />
+          </label>
         ))}
       </div>
       <p className="note">{t('phys.note')}</p>
@@ -426,12 +778,23 @@ function Code({ engine, ui }: Props) {
   return (
     <details className="blk">
       <summary>{t('code.title')}</summary>
-      <textarea spellCheck={false} aria-label={t('code.label')} placeholder={t('code.placeholder')}
-        value={ui.codeText} onChange={(e) => engine.setCodeText(e.target.value)} />
+      <textarea
+        spellCheck={false}
+        aria-label={t('code.label')}
+        placeholder={t('code.placeholder')}
+        value={ui.codeText}
+        onChange={(e) => engine.setCodeText(e.target.value)}
+      />
       <div className="btnrow">
-        <button type="button" className="btn sm" onClick={engine.exportCode}>{t('code.export')}</button>
-        <button type="button" className="btn sm" onClick={() => void engine.copyCode()}>{t('code.copy')}</button>
-        <button type="button" className="btn sm" onClick={engine.importCode}>{t('code.import')}</button>
+        <button type="button" className="btn sm" onClick={engine.exportCode}>
+          {t('code.export')}
+        </button>
+        <button type="button" className="btn sm" onClick={() => void engine.copyCode()}>
+          {t('code.copy')}
+        </button>
+        <button type="button" className="btn sm" onClick={engine.importCode}>
+          {t('code.import')}
+        </button>
       </div>
       <p className="note">{ui.codeMsg}</p>
     </details>
@@ -448,15 +811,38 @@ export function Side({ engine, ui, open }: Props & { open: boolean }) {
     <aside className="side" hidden={!open}>
       <div className="tabs" role="tablist" aria-label={t('tab.label')}>
         {TABS.map((id) => (
-          <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls="sidepanel" onClick={() => setTab(id)}>{t(`tab.${id}`)}</button>
+          <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls="sidepanel" onClick={() => setTab(id)}>
+            {t(`tab.${id}`)}
+          </button>
         ))}
       </div>
       <div className="tabpanel" id="sidepanel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {tab === 'boards' && <Boards engine={engine} ui={ui} />}
-        {tab === 'wind' && <><Wind engine={engine} ui={ui} /><Overlays engine={engine} ui={ui} /><Physics engine={engine} ui={ui} /></>}
-        {tab === 'results' && <><Rooms ui={ui} /><FengShui ui={ui} /></>}
-        {tab === 'compare' && <><Compare engine={engine} ui={ui} /><Sweep engine={engine} ui={ui} /></>}
-        {tab === 'layouts' && <><Layouts engine={engine} ui={ui} /><Code engine={engine} ui={ui} /></>}
+        {tab === 'wind' && (
+          <>
+            <Wind engine={engine} ui={ui} />
+            <Overlays engine={engine} ui={ui} />
+            <Physics engine={engine} ui={ui} />
+          </>
+        )}
+        {tab === 'results' && (
+          <>
+            <Rooms ui={ui} />
+            <FengShui ui={ui} />
+          </>
+        )}
+        {tab === 'compare' && (
+          <>
+            <Compare engine={engine} ui={ui} />
+            <Sweep engine={engine} ui={ui} />
+          </>
+        )}
+        {tab === 'layouts' && (
+          <>
+            <Layouts engine={engine} ui={ui} />
+            <Code engine={engine} ui={ui} />
+          </>
+        )}
       </div>
     </aside>
   );

@@ -13,9 +13,12 @@ const MAY_MENTION = new Set(['fs.disclaimer', 'fs.nc.compass']);
 
 /** 40 x 24 room (x 12..51, y 8..31) on a 64 x 40 grid. */
 function room(opens: [number, number, number, number][], wind: [number, number] = [2, 270]): Sim {
-  const s = new Sim(64, 40); s.setWind(...wind); box(s, 12, 8, 51, 31);
+  const s = new Sim(64, 40);
+  s.setWind(...wind);
+  box(s, 12, 8, 51, 31);
   for (const o of opens) open(s, ...o);
-  s.rebuild(); s.resetFlow();
+  s.rebuild();
+  s.resetFlow();
   return s;
 }
 const W_OPEN: [number, number, number, number] = [12, 16, 12, 23];
@@ -40,9 +43,11 @@ describe('rule list', () => {
     expect(r.notChecked).toEqual(FS_NOT_CHECKED);
   });
   it('is only for Plan view with at least one room', () => {
-    const sec = room([W_OPEN, E_OPEN]); sec.mode = 'section';
+    const sec = room([W_OPEN, E_OPEN]);
+    sec.mode = 'section';
     expect(evaluateFengShui(sec, sec.roomStats(0.1), [], true)).toBeNull();
-    const none = new Sim(64, 40); none.setWind(2, 270);
+    const none = new Sim(64, 40);
+    none.setWind(2, 270);
     expect(evaluateFengShui(none, [], [], true)).toBeNull();
   });
   it('never uses luck, wealth or health words in any feng shui text, in English or Vietnamese', () => {
@@ -64,7 +69,9 @@ describe('rule list', () => {
 describe('opening facing', () => {
   it('points the outside of each wall opening the right way', () => {
     const s = room([W_OPEN, E_OPEN, N_OPEN, S_OPEN]);
-    const f = findOpenings(s).map((o) => Math.round(o.facing!)).sort((a, b) => a - b);
+    const f = findOpenings(s)
+      .map((o) => Math.round(o.facing!))
+      .sort((a, b) => a - b);
     expect(f).toEqual([0, 90, 180, 270]); // N, E, S, W
     expect(findOpenings(s).every((o) => o.width === 8)).toBe(true);
   });
@@ -105,7 +112,10 @@ describe('buffer rule', () => {
     expect(r.status).toBe('info');
     expect(r.vars).toMatchObject({ direct: 2, total: 2 });
     const s = room([W_OPEN, E_OPEN]);
-    for (let y = 12; y <= 27; y++) { s.cell[s.idx(16, y)] = T_SCREEN; s.cell[s.idx(47, y)] = T_WALL; }
+    for (let y = 12; y <= 27; y++) {
+      s.cell[s.idx(16, y)] = T_SCREEN;
+      s.cell[s.idx(47, y)] = T_WALL;
+    }
     s.rebuild();
     expect(rule(run(s), 'buffer').status).toBe('ok');
   });

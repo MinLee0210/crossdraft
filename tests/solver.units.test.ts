@@ -3,7 +3,20 @@ import { fanJetCells, Sim, T_FAN, type RoomStat } from '../lib/sim';
 import { box } from './helpers';
 
 const stat = (o: Partial<RoomStat>): RoomStat => ({
-  id: 1, name: 'R1', cells: 100, area: 10, cx: 0, cy: 0, speed: 0.1, dead: 0, fresh: 1, age: 0, temp: 0, t50: null, t90: null, ...o
+  id: 1,
+  name: 'R1',
+  cells: 100,
+  area: 10,
+  cx: 0,
+  cy: 0,
+  speed: 0.1,
+  dead: 0,
+  fresh: 1,
+  age: 0,
+  temp: 0,
+  t50: null,
+  t90: null,
+  ...o
 });
 
 describe('Sim.score', () => {
@@ -36,16 +49,21 @@ describe('Sim.score', () => {
 
 describe('roomStats', () => {
   it('is empty with no rooms', () => {
-    const s = new Sim(40, 30); s.setWind(2, 270);
+    const s = new Sim(40, 30);
+    s.setWind(2, 270);
     expect(s.roomStats(0.1)).toEqual([]);
   });
   it('counts dead-zone cells against the threshold and reports area in m2', () => {
-    const s = new Sim(60, 40); s.setWind(2, 270);
+    const s = new Sim(60, 40);
+    s.setWind(2, 270);
     box(s, 10, 10, 29, 25); // 18 x 14 interior
-    s.rebuild(); s.resetFlow();
+    s.rebuild();
+    s.resetFlow();
     const interior: number[] = [];
     for (let y = 11; y <= 24; y++) for (let x = 11; x <= 28; x++) interior.push(s.idx(x, y));
-    interior.forEach((c, i) => { s.spd[c] = i % 2 ? 0.05 : 0.5; }); // half still, half moving
+    interior.forEach((c, i) => {
+      s.spd[c] = i % 2 ? 0.05 : 0.5;
+    }); // half still, half moving
     const [r] = s.roomStats(0.1);
     expect(r.cells).toBe(18 * 14);
     expect(r.area).toBeCloseTo(18 * 14 * 0.0625, 5);
@@ -57,23 +75,31 @@ describe('roomStats', () => {
 
 describe('fanJetCells', () => {
   it('never reaches more than one cell from the fan, even at the grid edge, so it cannot wrap', () => {
-    const W = 20, H = 12, S = W + 2, N = S * (H + 2), s = new Sim(W, H);
+    const W = 20,
+      H = 12,
+      S = W + 2,
+      N = S * (H + 2),
+      s = new Sim(W, H);
     for (let d = 0; d < 8; d++) {
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const c = s.idx(x, y);
-        const cells = fanJetCells(c, d, S, N);
-        expect(cells).toContain(c);
-        for (const k of cells) {
-          expect(Math.abs((k % S) - (c % S))).toBeLessThanOrEqual(1);
-          expect(Math.abs(Math.floor(k / S) - Math.floor(c / S))).toBeLessThanOrEqual(1);
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const c = s.idx(x, y);
+          const cells = fanJetCells(c, d, S, N);
+          expect(cells).toContain(c);
+          for (const k of cells) {
+            expect(Math.abs((k % S) - (c % S))).toBeLessThanOrEqual(1);
+            expect(Math.abs(Math.floor(k / S) - Math.floor(c / S))).toBeLessThanOrEqual(1);
+          }
         }
-      }
     }
   });
   it('a fan on the edge does not disturb the far side of the grid', () => {
-    const s = new Sim(60, 40); s.setWind(0, 270);
-    s.cell[s.idx(0, 20)] = T_FAN; s.fdir[s.idx(0, 20)] = 4; // west edge, blowing west (out of the grid)
-    s.rebuild(); s.resetFlow();
+    const s = new Sim(60, 40);
+    s.setWind(0, 270);
+    s.cell[s.idx(0, 20)] = T_FAN;
+    s.fdir[s.idx(0, 20)] = 4; // west edge, blowing west (out of the grid)
+    s.rebuild();
+    s.resetFlow();
     s.step(s.suggestDt());
     for (let y = 1; y <= 40; y++) expect(Math.abs(s.u[60 + y * s.S])).toBeLessThan(0.05);
   });

@@ -6,7 +6,8 @@ describe('houses', () => {
   const res: Partial<Record<Kind, NonNullable<ReturnType<typeof Sim.score>>>> = {};
   for (const k of ['cross', 'same', 'sealed'] as Kind[]) {
     it(`stays finite and bounded: ${k}`, () => {
-      const s = house(k); run(s, 120);
+      const s = house(k);
+      run(s, 120);
       res[k] = Sim.score(s.roomStats(0.1))!;
       expect(finite(s)).toBe(true);
       expect(s.maxV).toBeLessThan(12);

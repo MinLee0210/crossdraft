@@ -21,16 +21,23 @@ export const FS_NOT_CHECKED = ['stairs', 'layout', 'furniture', 'compass', 'size
 export const FS_SOURCES: Record<FsRuleId, { title: string; url: string }[]> = {
   align: [
     { title: 'Master Sean Chan: Front door aligned with back door', url: 'https://www.masterseanchan.com/feng-shui-front-back-door-myth/' },
-    { title: 'Thư Viện Nhà Đất: Lỗi thường gặp khi thiết kế cửa chính', url: 'https://thuviennhadat.vn/cam-nang-nha-dat/nhung-loi-thuong-gap-khi-thiet-ke-cua-chinh-theo-phong-thuy-va-cach-sua-chua-605037.html' }
+    {
+      title: 'Thư Viện Nhà Đất: Lỗi thường gặp khi thiết kế cửa chính',
+      url: 'https://thuviennhadat.vn/cam-nang-nha-dat/nhung-loi-thuong-gap-khi-thiet-ke-cua-chinh-theo-phong-thuy-va-cach-sua-chua-605037.html'
+    }
   ],
   buffer: [
-    { title: 'Bách Hóa Xanh: Huyền quan là gì?', url: 'https://www.bachhoaxanh.com/kinh-nghiem-hay/huyen-quan-la-gi-vai-tro-cua-huyen-quan-trong-phong-thuy-nha-o-1401970' }
+    {
+      title: 'Bách Hóa Xanh: Huyền quan là gì?',
+      url: 'https://www.bachhoaxanh.com/kinh-nghiem-hay/huyen-quan-la-gi-vai-tro-cua-huyen-quan-trong-phong-thuy-nha-o-1401970'
+    }
   ],
-  wind: [
-    { title: 'VnExpress: Cây xanh trong phong thủy', url: 'https://vnexpress.net/cay-xanh-trong-phong-thuy-2428975.html' }
-  ],
+  wind: [{ title: 'VnExpress: Cây xanh trong phong thủy', url: 'https://vnexpress.net/cay-xanh-trong-phong-thuy-2428975.html' }],
   stale: [
-    { title: 'Phong Thủy Tam Nguyên: Bí quyết lưu thông không khí trong nhà ở', url: 'https://phongthuytamnguyen.com/kien-thuc/bi-quyet-luu-thong-khong-khi-trong-nha-o' }
+    {
+      title: 'Phong Thủy Tam Nguyên: Bí quyết lưu thông không khí trong nhà ở',
+      url: 'https://phongthuytamnguyen.com/kien-thuc/bi-quyet-luu-thong-khong-khi-trong-nha-o'
+    }
   ]
 };
 
@@ -44,7 +51,10 @@ export interface FsRule {
   /** Optional second measured sentence. */
   more?: { key: string; vars: Record<string, string | number> };
 }
-export interface FsResult { rules: FsRule[]; notChecked: readonly string[] }
+export interface FsResult {
+  rules: FsRule[];
+  notChecked: readonly string[];
+}
 
 /** Traditional reading of a wind: the cold side is north to north-east, the good-breeze side is south-east to south. */
 export type WindSide = 'harsh' | 'good' | 'neutral';
@@ -57,12 +67,12 @@ export function windSide(deg: number): WindSide {
 
 /** Smallest angle between two bearings, in degrees (0 to 180). */
 export const bearingGap = (a: number, b: number): number => {
-  const d = Math.abs(((a - b) % 360 + 360) % 360);
+  const d = Math.abs((((a - b) % 360) + 360) % 360);
   return d > 180 ? 360 - d : d;
 };
 
 const WINDWARD = 67.5; // an opening faces the wind when its outside points within this angle of where the wind comes from
-const BUFFER_M = 2;    // an entrance counts as buffered when a wall or screen stands within this distance inside
+const BUFFER_M = 2; // an entrance counts as buffered when a wall or screen stands within this distance inside
 
 const pc = (x: number) => Math.round(x * 100);
 const fix = (x: number, d = 1) => x.toFixed(d);
@@ -80,7 +90,8 @@ export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignm
   // 1. Front-to-back line
   if (!alignments.length) rules.push({ id: 'align', status: 'ok', key: 'fs.align.none', vars: {} });
   else {
-    const open = alignments.filter((a) => !a.screened), a = open[0] ?? alignments[0];
+    const open = alignments.filter((a) => !a.screened),
+      a = open[0] ?? alignments[0];
     const vars = { room: name(a.room), len: fix(a.length), speed: fix(a.speed) };
     const more = settled
       ? { key: 'fs.align.linger', vars: { d: ENTRY_M, dir: a.entry.facing === null ? '?' : compass(a.entry.facing), age: fix(a.linger, 0) } }
@@ -93,20 +104,27 @@ export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignm
   if (!ops.length) rules.push({ id: 'buffer', status: 'info', key: 'fs.buffer.none', vars: {} });
   else {
     const direct = ops.filter((o) => !buffered(sim, o.cx, o.cy, o.facing)).length;
-    rules.push(direct === 0
-      ? { id: 'buffer', status: 'ok', key: 'fs.buffer.ok', vars: { d: BUFFER_M } }
-      : { id: 'buffer', status: 'info', key: 'fs.buffer.direct', vars: { direct, total: ops.length, d: BUFFER_M } });
+    rules.push(
+      direct === 0
+        ? { id: 'buffer', status: 'ok', key: 'fs.buffer.ok', vars: { d: BUFFER_M } }
+        : { id: 'buffer', status: 'info', key: 'fs.buffer.direct', vars: { direct, total: ops.length, d: BUFFER_M } }
+    );
   }
 
   // 3. Wind and openings ("tang phong tu khi")
   if (sim.speed < 0.3) rules.push({ id: 'wind', status: 'info', key: 'fs.wind.calm', vars: {} });
   else {
-    const side = windSide(sim.deg), dir = `${compass(sim.deg)} ${Math.round(sim.deg)}°`;
+    const side = windSide(sim.deg),
+      dir = `${compass(sim.deg)} ${Math.round(sim.deg)}°`;
     const hit = ops.filter((o) => o.facing !== null && bearingGap(o.facing, sim.deg) <= WINDWARD);
     const w = fix(hit.reduce((s, o) => s + o.width, 0) * sim.cellSize);
     const vars = { dir, w };
-    if (side === 'harsh') rules.push(hit.length ? { id: 'wind', status: 'attention', key: 'fs.wind.harshHit', vars } : { id: 'wind', status: 'ok', key: 'fs.wind.harshClear', vars });
-    else if (side === 'good') rules.push(hit.length ? { id: 'wind', status: 'ok', key: 'fs.wind.goodHit', vars } : { id: 'wind', status: 'info', key: 'fs.wind.goodMiss', vars });
+    if (side === 'harsh')
+      rules.push(
+        hit.length ? { id: 'wind', status: 'attention', key: 'fs.wind.harshHit', vars } : { id: 'wind', status: 'ok', key: 'fs.wind.harshClear', vars }
+      );
+    else if (side === 'good')
+      rules.push(hit.length ? { id: 'wind', status: 'ok', key: 'fs.wind.goodHit', vars } : { id: 'wind', status: 'info', key: 'fs.wind.goodMiss', vars });
     else rules.push({ id: 'wind', status: 'info', key: 'fs.wind.neutral', vars });
   }
 
@@ -114,9 +132,11 @@ export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignm
   if (!settled) rules.push({ id: 'stale', status: 'info', key: 'fs.stale.wait', vars: {} });
   else {
     const bad = stats.filter((r) => r.fresh < 0.35 || r.dead > 0.25);
-    rules.push(bad.length
-      ? { id: 'stale', status: 'attention', key: 'fs.stale.attention', vars: { rooms: bad.map((r) => `${r.name} (${pc(r.fresh)}%)`).join(', ') } }
-      : { id: 'stale', status: 'ok', key: 'fs.stale.ok', vars: {} });
+    rules.push(
+      bad.length
+        ? { id: 'stale', status: 'attention', key: 'fs.stale.attention', vars: { rooms: bad.map((r) => `${r.name} (${pc(r.fresh)}%)`).join(', ') } }
+        : { id: 'stale', status: 'ok', key: 'fs.stale.ok', vars: {} }
+    );
   }
   return { rules, notChecked: FS_NOT_CHECKED };
 }
@@ -124,10 +144,13 @@ export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignm
 /** True when a wall or screen stands within BUFFER_M metres inside an opening, looking in from its outside. */
 function buffered(sim: Sim, cx: number, cy: number, facing: number | null): boolean {
   if (facing === null) return false;
-  const a = (facing * Math.PI) / 180, ix = -Math.sin(a), iy = Math.cos(a); // inward = opposite of the outward bearing
+  const a = (facing * Math.PI) / 180,
+    ix = -Math.sin(a),
+    iy = Math.cos(a); // inward = opposite of the outward bearing
   const n = Math.max(4, Math.round(BUFFER_M / sim.cellSize));
   for (let k = 1; k <= n; k++) {
-    const x = Math.round(cx + ix * k), y = Math.round(cy + iy * k);
+    const x = Math.round(cx + ix * k),
+      y = Math.round(cy + iy * k);
     if (x < 0 || y < 0 || x >= sim.W || y >= sim.H) return false;
     const t = sim.cell[sim.idx(x, y)];
     if (t === T_WALL || t === T_SCREEN) return true;

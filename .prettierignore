@@ -1,0 +1,16 @@
+# build output and dependencies
+node_modules/
+.next/
+out/
+package-lock.json
+next-env.d.ts
+
+# the old single-file version, kept for reference
+legacy/
+
+# private notes
+docs/internal/
+
+# data tables that are laid out by hand: one example or one dictionary entry per line reads better than what Prettier would make of them
+lib/i18n.ts
+lib/presets.ts

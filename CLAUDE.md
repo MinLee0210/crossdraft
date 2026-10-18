@@ -5,6 +5,7 @@ Crossdraft: Next.js (App Router, TypeScript) static site, a 2D airflow sketchpad
 
 ## Commands
 - Dev: `npm run dev`. Build: `npm run build` (static export to `out/`). Types: `npm run typecheck`.
+- Format: `npm run format` (Prettier, config in `.prettierrc.json`); `npm run format:check` verifies. Run it before committing. `lib/i18n.ts` and `lib/presets.ts` are ignored on purpose (hand-laid-out data tables); `legacy/` and `docs/internal/` too.
 - Tests: `npm test` (vitest). Must pass before any commit; re-run after touching `lib/sim.ts` or `lib/layout.ts`.
 
 ## Architecture
@@ -15,6 +16,7 @@ Crossdraft: Next.js (App Router, TypeScript) static site, a 2D airflow sketchpad
 - `lib/openings.ts`, `lib/insights.ts`, `lib/phongthuy.ts`, `lib/winds.ts`: opening detection, plain-language room insights, door-alignment check, typical wind presets. All pure.
 - `lib/world.ts`: the world layer, notes and arrows drawn around the board (`WorldItem`, `cleanWorld`, `hitItem`). Pure. Metres from the board's top-left, saved in the layout code as optional `world`, never seen by the solver.
 - `lib/project.ts`: the project format (v3): boards (id, name, world position, layout per mode, reserved `link`), active board and notes; `serializeProject`, strict `deserializeProject` (also reads a single-board v2 layout code), `#p=` share hash. Pure. Storage key `crossdraft.v3`.
+- `lib/site.ts`, `lib/seo.ts`, `lib/content.ts`, `components/Doc.tsx`, `components/Guide.tsx`, `app/learn/`, `app/vi/learn/`, `app/sitemap.ts`, `app/robots.ts`: SEO and GEO. The guide pages (what it is, cross-ventilation basics, how it works, feng shui and airflow, examples, FAQ) are server-rendered, bilingual (`/learn`, `/vi/learn`), with canonical and hreflang metadata, JSON-LD (WebApplication on `/`, TechArticle, FAQPage, BreadcrumbList), a sitemap and robots.txt. Text lives in `lib/content.ts`; it must describe behaviour the app really has and keep the "indicative, not CFD" and "tradition, not engineering" framing. The site URL comes from `NEXT_PUBLIC_SITE_URL` (default the Vercel alias). `public/og.png` is the social preview, `public/llms.txt` is an optional summary for AI tools. `tests/seo.test.ts` checks both languages exist for every page.
 - `lib/i18n.ts`: `EN` (source of truth) and `VI` dictionaries plus `translate(lang, key, vars)`. Components use `useT()`; the engine uses its own `t`. Every key must exist in both languages; `tests/i18n.test.ts` enforces it.
 - `lib/gif.ts`: animated GIF encoder (`medianCut`, `Quantizer`, `GifEncoder`). Pure. The engine records the canvas into it (`recordGif`) and stamps the "not CFD" caption on every frame.
 - `lib/sweep.ts`: `Sweep` runs a layout against 8 or 16 wind directions on its own `Sim`, time-sliced via `advance(budgetMs)`; `summarise`. Pure. The engine drops results (`dropSweep`) whenever the drawing changes.

@@ -9,8 +9,12 @@ describe('larger plan examples', () => {
   for (const [id, rooms] of Object.entries(EXPECTED_ROOMS)) {
     it(`${id}: ${rooms} rooms, finite flow`, () => {
       const p = PRESETS.plan.find((q) => q.id === id)!;
-      const s = new Sim(120, 80); s.mode = 'plan'; s.cellSize = 0.25;
-      p.build(s); s.setWind(p.speed, p.deg); s.resetFlow();
+      const s = new Sim(120, 80);
+      s.mode = 'plan';
+      s.cellSize = 0.25;
+      p.build(s);
+      s.setWind(p.speed, p.deg);
+      s.resetFlow();
       expect(s.rooms.length).toBe(rooms);
       for (let i = 0; i < 400 && s.t < 6; i++) s.step(s.suggestDt());
       for (let i = 0; i < s.u.length; i++) if (!Number.isFinite(s.u[i]) || !Number.isFinite(s.v[i])) throw new Error('flow went non-finite');

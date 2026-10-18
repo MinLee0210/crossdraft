@@ -6,7 +6,10 @@ const base = (world?: WorldItem[]): Layout => ({ mode: 'plan', W: 40, H: 30, cel
 
 describe('world layer', () => {
   it('round-trips notes and arrows through a layout code', () => {
-    const w: WorldItem[] = [{ k: 'text', x: 1.5, y: -2, text: 'Prevailing wind' }, { k: 'arrow', x: 0, y: 0, x2: 4, y2: 3 }];
+    const w: WorldItem[] = [
+      { k: 'text', x: 1.5, y: -2, text: 'Prevailing wind' },
+      { k: 'arrow', x: 0, y: 0, x2: 4, y2: 3 }
+    ];
     expect(deserialize(serialize(base(w))).world).toEqual(w);
   });
   it('omits an empty world and reads old codes as empty', () => {
@@ -25,7 +28,10 @@ describe('world layer', () => {
     expect(t.k === 'text' && t.text.length).toBe(120);
   });
   it('hits text by its box and arrows by distance, newest first', () => {
-    const w: WorldItem[] = [{ k: 'text', x: 0, y: 0, text: 'hello' }, { k: 'arrow', x: 0, y: 5, x2: 10, y2: 5 }];
+    const w: WorldItem[] = [
+      { k: 'text', x: 0, y: 0, text: 'hello' },
+      { k: 'arrow', x: 0, y: 5, x2: 10, y2: 5 }
+    ];
     expect(hitItem(w, 1, 0.1, 0.2)).toBe(0);
     expect(hitItem(w, 5, 5.1, 0.2)).toBe(1);
     expect(hitItem(w, 5, 8, 0.2)).toBe(-1);

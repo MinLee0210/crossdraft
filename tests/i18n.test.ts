@@ -6,7 +6,11 @@ import { TOOLS, VIEWS } from '../lib/tools';
 import { WIND_PRESETS } from '../lib/winds';
 import { FS_NOT_CHECKED, FS_RULES } from '../lib/fengshui';
 
-const ph = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
+const ph = (s: string) =>
+  [...s.matchAll(/\{(\w+)\}/g)]
+    .map((m) => m[1])
+    .sort()
+    .join(',');
 
 describe('i18n', () => {
   it('has every English key in Vietnamese, and nothing extra', () => {
@@ -33,7 +37,9 @@ describe('i18n', () => {
       ...TOOLS.flatMap((t) => [`tool.${t.id}.name`, `tool.${t.id}.tip`]),
       ...VIEWS.map(([id]) => `view.${id}`),
       ...WIND_PRESETS.map((p) => `wind.${p.id}`),
-      ...Object.values(PRESETS).flat().flatMap((p) => [`preset.${p.id}.name`, `preset.${p.id}.note`]),
+      ...Object.values(PRESETS)
+        .flat()
+        .flatMap((p) => [`preset.${p.id}.name`, `preset.${p.id}.note`]),
       ...FS_RULES.flatMap((r) => [`fs.${r}.title`, `fs.${r}.tradition`, `fs.${r}.physics`]),
       ...FS_NOT_CHECKED.map((k) => `fs.nc.${k}`),
       ...['ok', 'attention', 'info'].map((k) => `fs.status.${k}`),

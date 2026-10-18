@@ -22,7 +22,9 @@ export function insights(sim: Sim, stats: RoomStat[], settled: boolean): Insight
   const ops = findOpenings(sim);
   for (const r of stats) {
     const mine = ops.filter((o) => o.rooms.includes(r.id));
-    const n = mine.length, ext = mine.filter((o) => o.outside).length, v = { room: r.name, fresh: pc(r.fresh), n, dead: pc(r.dead) };
+    const n = mine.length,
+      ext = mine.filter((o) => o.outside).length,
+      v = { room: r.name, fresh: pc(r.fresh), n, dead: pc(r.dead) };
     if (n === 0) out.push({ key: 'insight.sealed', vars: v, tone: 'warn' });
     else if (r.fresh < 0.35) {
       if (n === 1) out.push({ key: 'insight.oneOpening', vars: v, tone: 'warn' });
