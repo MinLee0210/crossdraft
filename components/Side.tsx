@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Engine, TestResult, UiState } from '@/lib/engine';
 import { FS_SOURCES } from '@/lib/fengshui';
 import { beaufort, compass, fmt, pct } from '@/lib/format';
+import { GRID_MAX, GRID_MIN } from '@/lib/layout';
+import { MAX_BOARDS } from '@/lib/project';
 import { PRESETS } from '@/lib/presets';
-import { GRIDS, type GridKey } from '@/lib/tools';
 import { WIND_PRESETS } from '@/lib/winds';
 import { summarise } from '@/lib/sweep';
 import { useT } from './I18n';
@@ -302,6 +303,68 @@ function Compare({ engine, ui }: Props) {
   );
 }
 
+/* ---------------------------------------------------------------- boards */
+function BoardRow({ engine, b, last }: { engine: Engine; b: UiState['boards'][number]; last: boolean }) {
+  const t = useT();
+  const [name, setName] = useState(b.name);
+  useEffect(() => setName(b.name), [b.name]);
+  const commit = () => { if (name.trim() && name !== b.name) engine.renameBoard(b.id, name); else setName(b.name); };
+  return (
+    <li className={b.active ? 'on' : ''}>
+      <div className="boardrow">
+        <button type="button" className="pick" aria-pressed={b.active} aria-label={`${t('boards.title')}: ${b.name}`} onClick={() => engine.selectBoard(b.id)} />
+        <input value={name} maxLength={60} aria-label={t('boards.name')} onChange={(e) => setName(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+      </div>
+      <div className="note mono">{fmt(b.w, 1)} × {fmt(b.h, 1)} m · {t('boards.' + b.mode)}</div>
+      <div className="btnrow">
+        <button type="button" className="btn sm" onClick={() => engine.focusBoard(b.id)}>{t('boards.focus')}</button>
+        <button type="button" className="btn sm" onClick={() => engine.duplicateBoard(b.id)}>{t('boards.duplicate')}</button>
+        <button type="button" className="btn sm" disabled={last} onClick={() => engine.deleteBoard(b.id)}>{t('boards.delete')}</button>
+      </div>
+    </li>
+  );
+}
+
+function Boards({ engine, ui }: Props) {
+  const t = useT();
+  return (
+    <section className="blk">
+      <h2>{t('boards.title')}</h2>
+      <p className="hint">{t('boards.hint')}</p>
+      <ul className="boardlist">{ui.boards.map((b) => <BoardRow key={b.id} engine={engine} b={b} last={ui.boards.length < 2} />)}</ul>
+      <div className="btnrow"><button type="button" className="btn sm" disabled={ui.boards.length >= MAX_BOARDS} onClick={engine.newBoard}>{t('boards.new')}</button></div>
+      <p className="note">{t('boards.max', { n: MAX_BOARDS })}</p>
+      <div className="btnrow"><button type="button" className="btn sm" onClick={() => { if (window.confirm(t('boards.resetConfirm'))) engine.resetProject(); }}>{t('boards.reset')}</button></div>
+    </section>
+  );
+}
+
+/* ----------------------------------------------------------------- board */
+function BoardField({ label, value, min, max, disabled, onCommit }: { label: string; value: number; min: number; max: number; disabled: boolean; onCommit: (v: number) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => { const v = parseFloat(text ?? ''); setText(null); if (Number.isFinite(v)) onCommit(v); };
+  return (
+    <label className="fld"><span>{label}</span>
+      <input type="number" step={0.5} min={min} max={max} disabled={disabled} value={text ?? String(Math.round(value * 10) / 10)}
+        onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+    </label>
+  );
+}
+
+function Board({ engine, ui }: Props) {
+  const t = useT();
+  const c = ui.cellSize, sec = ui.mode === 'section';
+  return (
+    <>
+      <div className="row2">
+        <BoardField label={t('board.w')} value={ui.W * c} min={GRID_MIN.W * c} max={GRID_MAX.W * c} disabled={sec} onCommit={(v) => engine.setBoard(v, ui.H * c)} />
+        <BoardField label={t('board.h')} value={ui.H * c} min={GRID_MIN.H * c} max={GRID_MAX.H * c} disabled={sec} onCommit={(v) => engine.setBoard(ui.W * c, v)} />
+      </div>
+      <p className="hint">{sec ? t('board.noteSection') : t('board.note')}</p>
+    </>
+  );
+}
+
 /* --------------------------------------------------------------- layouts */
 const CELLS = [0.1, 0.125, 0.2, 0.25, 0.5];
 function Layouts({ engine, ui }: Props) {
@@ -317,14 +380,10 @@ function Layouts({ engine, ui }: Props) {
         <label className="fld"><span>{t('lay.example')}</span>
           <select value={current.id} onChange={(e) => setPicked(e.target.value)}>{presets.map((p) => <option key={p.id} value={p.id}>{t(`preset.${p.id}.name`)}</option>)}</select></label>
         <div className="fld"><span>&nbsp;</span><button type="button" className="btn sm" onClick={() => engine.loadPreset(current.id)}>{t('lay.load')}</button></div>
-        <label className="fld"><span>{t('lay.grid')}</span>
-          <select value={ui.grid ?? ''} onChange={(e) => engine.setGrid(e.target.value as GridKey)}>
-            {ui.grid === null && <option value="">{ui.W} x {ui.H}</option>}
-            {(Object.keys(GRIDS) as GridKey[]).map((k) => <option key={k} value={k}>{t('grid.' + k)}</option>)}
-          </select></label>
         <label className="fld"><span>{t('lay.cell')}</span>
           <select value={ui.cellSize} onChange={(e) => engine.setCellSize(+e.target.value)}>{cells.map((c) => <option key={c} value={c}>{c.toFixed(c === 0.125 ? 3 : 2)} m</option>)}</select></label>
       </div>
+      <Board engine={engine} ui={ui} />
       <p className="note"><b>{t('lay.notice')}</b> {t(`preset.${current.id}.note`)}</p>
       <p className="hint">
         {t('lay.domain', { w: fmt(ui.W * ui.cellSize, 1), h: fmt(ui.H * ui.cellSize, 1) })}{' '}
@@ -379,18 +438,26 @@ function Code({ engine, ui }: Props) {
   );
 }
 
-export function Side({ engine, ui }: Props) {
+const TABS = ['boards', 'wind', 'results', 'compare', 'layouts'] as const;
+type TabId = (typeof TABS)[number];
+
+export function Side({ engine, ui, open }: Props & { open: boolean }) {
+  const t = useT();
+  const [tab, setTab] = useState<TabId>('wind');
   return (
-    <aside className="side">
-      <Wind engine={engine} ui={ui} />
-      <Overlays engine={engine} ui={ui} />
-      <FengShui ui={ui} />
-      <Rooms ui={ui} />
-      <Sweep engine={engine} ui={ui} />
-      <Compare engine={engine} ui={ui} />
-      <Layouts engine={engine} ui={ui} />
-      <Physics engine={engine} ui={ui} />
-      <Code engine={engine} ui={ui} />
+    <aside className="side" hidden={!open}>
+      <div className="tabs" role="tablist" aria-label={t('tab.label')}>
+        {TABS.map((id) => (
+          <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls="sidepanel" onClick={() => setTab(id)}>{t(`tab.${id}`)}</button>
+        ))}
+      </div>
+      <div className="tabpanel" id="sidepanel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
+        {tab === 'boards' && <Boards engine={engine} ui={ui} />}
+        {tab === 'wind' && <><Wind engine={engine} ui={ui} /><Overlays engine={engine} ui={ui} /><Physics engine={engine} ui={ui} /></>}
+        {tab === 'results' && <><Rooms ui={ui} /><FengShui ui={ui} /></>}
+        {tab === 'compare' && <><Compare engine={engine} ui={ui} /><Sweep engine={engine} ui={ui} /></>}
+        {tab === 'layouts' && <><Layouts engine={engine} ui={ui} /><Code engine={engine} ui={ui} /></>}
+      </div>
     </aside>
   );
 }

@@ -1,5 +1,6 @@
 import { clamp } from './format';
 import { T_FAN, type Mode } from './sim';
+import { cleanWorld, type WorldItem } from './world';
 
 /** A drawing, independent of the solver. `types` holds one byte per cell: 0-5 cell type, 10+d fan facing d (0-7). */
 export interface Layout {
@@ -9,6 +10,8 @@ export interface Layout {
   cell: number;
   wind: { speed: number; deg: number };
   types: Uint8Array;
+  /** Notes and arrows around the board. Illustration only. */
+  world?: WorldItem[];
 }
 
 export const GRID_MIN = { W: 40, H: 30 };
@@ -47,7 +50,7 @@ export function unrle(str: string, n: number): Uint8Array {
 }
 
 export function serialize(s: Layout): string {
-  return JSON.stringify({ app: 'crossdraft', v: LAYOUT_VERSION, mode: s.mode, W: s.W, H: s.H, cell: s.cell, wind: s.wind, rle: rle(s.types) });
+  return JSON.stringify({ app: 'crossdraft', v: LAYOUT_VERSION, mode: s.mode, W: s.W, H: s.H, cell: s.cell, wind: s.wind, rle: rle(s.types), ...(s.world && s.world.length ? { world: s.world } : {}) });
 }
 
 export function deserialize(str: string): Layout {
@@ -59,11 +62,13 @@ export function deserialize(str: string): Layout {
   if (W < GRID_MIN.W || H < GRID_MIN.H || W > GRID_MAX.W || H > GRID_MAX.H) throw new Error('Grid size out of range.');
   if (!o.wind || typeof o.wind !== 'object') throw new Error('Missing wind settings.');
   const mode: Mode = o.mode === 'section' ? 'section' : 'plan';
+  const world = cleanWorld(o.world);
   return {
     mode, W, H,
     cell: clamp(+o.cell || 0.25, 0.05, 1),
     wind: { speed: clamp(+o.wind.speed || 0, 0, 12), deg: (((+o.wind.deg || 0) % 360) + 360) % 360 },
-    types: unrle(o.rle, W * H)
+    types: unrle(o.rle, W * H),
+    ...(world.length ? { world } : {})
   };
 }
 
