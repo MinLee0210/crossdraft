@@ -2,6 +2,9 @@
 
 > Crossdraft is a free web app for sketching a floor plan or section, setting the wind, and watching a small 2D simulation show how air moves through the rooms. It is a teaching model for architecture and engineering students, indicative and not CFD. It runs in the browser; nothing is uploaded. English and Vietnamese.
 
+## App
+- [Open the app](https://crossdraft-alpha.vercel.app/app): the sketchpad itself
+
 ## Guide
 - [Guide index](https://crossdraft-alpha.vercel.app/learn): all guide pages
 - [What is Crossdraft?](https://crossdraft-alpha.vercel.app/learn/what-is-crossdraft): what the app does and does not do
@@ -12,6 +15,7 @@
 - [FAQ](https://crossdraft-alpha.vercel.app/learn/faq)
 
 ## Vietnamese
+- [Trang chủ](https://crossdraft-alpha.vercel.app/vi)
 - [Hướng dẫn](https://crossdraft-alpha.vercel.app/vi/learn)
 
 ## Source

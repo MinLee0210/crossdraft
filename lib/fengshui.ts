@@ -1,7 +1,7 @@
 import { compass } from './format';
 import { findOpenings } from './openings';
 import { ENTRY_M, type Alignment } from './phongthuy';
-import { T_OPEN, T_SCREEN, T_WALL, type RoomStat, type Sim } from './sim';
+import { T_DOOR, T_OPEN, T_SCREEN, T_WALL, type RoomStat, type Sim } from './sim';
 
 /**
  * The CLOSED list of feng shui (phong thuy) rules Crossdraft checks. Each one is about airflow, and each is measured on
@@ -153,7 +153,7 @@ function buffered(sim: Sim, cx: number, cy: number, facing: number | null): bool
       y = Math.round(cy + iy * k);
     if (x < 0 || y < 0 || x >= sim.W || y >= sim.H) return false;
     const t = sim.cell[sim.idx(x, y)];
-    if (t === T_WALL || t === T_SCREEN) return true;
+    if (t === T_WALL || t === T_DOOR || t === T_SCREEN) return true;
     if (t === T_OPEN) continue;
   }
   return false;

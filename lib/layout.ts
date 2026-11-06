@@ -40,7 +40,7 @@ export function unrle(str: string, n: number): Uint8Array {
     const v = Number(p[0]),
       c = p[1] === undefined ? 1 : Number(p[1]);
     if (!Number.isInteger(v) || !Number.isInteger(c) || c < 1) throw new Error('bad token "' + tok + '"');
-    const ok = (v >= 0 && v <= 5) || (v >= 10 && v <= 17);
+    const ok = (v >= 0 && v <= 6) || (v >= 10 && v <= 17);
     if (!ok) throw new Error('unknown cell value ' + v);
     if (k + c > n) throw new Error('layout is larger than its grid');
     a.fill(v, k, k + c);

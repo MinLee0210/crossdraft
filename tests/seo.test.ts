@@ -3,6 +3,7 @@ import robots from '../app/robots';
 import sitemap from '../app/sitemap';
 import { ARTICLES, exampleList, FAQS, META, SLUGS } from '../lib/content';
 import { guideLd, guideMetadata, HOME_DESCRIPTION, HOME_TITLE, learnPath, webAppLd } from '../lib/seo';
+import { LANDING } from '../lib/landing';
 import { LANGS, SITE_URL } from '../lib/site';
 
 describe('guide content', () => {
@@ -56,6 +57,8 @@ describe('metadata, sitemap and robots', () => {
     const urls = sitemap().map((e) => e.url);
     expect(new Set(urls).size).toBe(urls.length);
     expect(urls).toContain(SITE_URL + '/');
+    expect(urls).toContain(SITE_URL + '/vi');
+    expect(urls).toContain(SITE_URL + '/app');
     for (const slug of SLUGS) for (const lang of LANGS) expect(urls).toContain(SITE_URL + learnPath(lang, slug));
     expect(urls.every((u) => u.startsWith('https://'))).toBe(true);
   });
@@ -63,6 +66,19 @@ describe('metadata, sitemap and robots', () => {
     const r = robots();
     expect(r.sitemap).toBe(`${SITE_URL}/sitemap.xml`);
     for (const rule of [r.rules].flat()) expect(rule.disallow).toBeUndefined();
+  });
+});
+
+describe('landing copy', () => {
+  it('has text in both languages for every string', () => {
+    const walk = (o: unknown, path: string) => {
+      if (o && typeof o === 'object' && 'en' in o && 'vi' in o) {
+        const l = o as Record<string, string>;
+        expect(l.en.trim(), path).not.toBe('');
+        expect(l.vi.trim(), path).not.toBe('');
+      } else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) walk(v, path + '.' + k);
+    };
+    walk(LANDING, 'landing');
   });
 });
 

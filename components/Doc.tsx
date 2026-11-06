@@ -24,9 +24,9 @@ export function Doc({ lang, slug, children }: { lang: SiteLang; slug?: Slug; chi
       <header className="dochead">
         <Link href="/" className="docbrand" aria-label="Crossdraft">
           <svg className="logo" viewBox="0 0 30 30" aria-hidden="true">
-            <path d="M3 10h14.5a3.8 3.8 0 1 0-3.8-3.8" />
-            <path d="M3 16h20.5a3.8 3.8 0 1 1-3.8 3.8" />
-            <path d="M3 22h9" />
+            <path d="M15 3v6M15 21v6" />
+            <path d="M3 15c4-7 8-7 12 0s8 7 12 0" />
+            <path d="M23 11.5l4 3.5-4 3.5" />
           </svg>
           <span>Crossdraft</span>
         </Link>
@@ -34,7 +34,7 @@ export function Doc({ lang, slug, children }: { lang: SiteLang; slug?: Slug; chi
           <Link href={learnPath(lang)}>{SECTIONS_UI.guide[lang]}</Link>
           <Link href={learnPath(lang, 'examples')}>{SECTIONS_UI.examplesNav[lang]}</Link>
           <Link href={learnPath(lang, 'faq')}>FAQ</Link>
-          <Link className="btn sm primary" href="/">
+          <Link className="btn sm primary" href="/app">
             {SECTIONS_UI.home[lang]}
           </Link>
           <Link className="btn sm" href={learnPath(other, slug)} hrefLang={other} lang={other}>
@@ -49,7 +49,7 @@ export function Doc({ lang, slug, children }: { lang: SiteLang; slug?: Slug; chi
           <a href={REPO_URL} rel="noopener noreferrer">
             GitHub
           </a>{' '}
-          · <Link href="/">{SECTIONS_UI.home[lang]}</Link>
+          · <Link href="/app">{SECTIONS_UI.home[lang]}</Link>
         </p>
       </footer>
     </div>

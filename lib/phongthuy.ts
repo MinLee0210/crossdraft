@@ -1,5 +1,5 @@
 import { findOpenings, type Opening } from './openings';
-import { T_SCREEN, T_WALL, type Sim } from './sim';
+import { T_DOOR, T_SCREEN, T_WALL, type Sim } from './sim';
 
 /** Two exterior openings of the same room that face each other along a clear straight line. */
 export interface Alignment {
@@ -56,7 +56,7 @@ function check(sim: Sim, A: Opening, B: Opening, room: number): Alignment | null
     const x = Math.round(A.cx + (dx * k) / steps),
       y = Math.round(A.cy + (dy * k) / steps),
       c = sim.idx(x, y);
-    if (sim.cell[c] === T_WALL) return null; // a wall (or partition) blocks the line of sight
+    if (sim.cell[c] === T_WALL || sim.cell[c] === T_DOOR) return null; // a wall (or partition) blocks the line of sight
     if (sim.cell[c] === T_SCREEN) screened = true;
     if (k > 2 && k < steps - 2) {
       sum += sim.spd[c];

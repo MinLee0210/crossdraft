@@ -12,15 +12,14 @@ interface Props {
 }
 
 const PAD: [number, string][] = [
+  [0, '→'],
+  [1, '↘'],
+  [2, '↓'],
+  [3, '↙'],
+  [4, '←'],
   [5, '↖'],
   [6, '↑'],
-  [7, '↗'],
-  [4, '←'],
-  [-1, ''],
-  [0, '→'],
-  [3, '↙'],
-  [2, '↓'],
-  [1, '↘']
+  [7, '↗']
 ];
 
 function Seg({ name, items, cur, onPick }: { name: string; items: number[]; cur: number; onPick: (v: number) => void }) {
@@ -62,6 +61,7 @@ function ToolOptions({ engine, ui }: Props) {
         <span>{tr('opt.open')}</span>
       </>
     );
+  if (t === 'door') return <span>{tr('opt.door')}</span>;
   if (t === 'erase')
     return (
       <>
@@ -79,23 +79,24 @@ function ToolOptions({ engine, ui }: Props) {
     return (
       <>
         <div className="pad" role="group" aria-label={tr('opt.fanDir')}>
-          {PAD.map(([d, a], i) =>
-            d < 0 ? (
-              <i key={i} />
-            ) : (
-              <button
-                key={i}
-                type="button"
-                aria-pressed={d === ui.fanDir}
-                aria-label={`${tr('opt.fanDir')}: ${tr('fan.' + FAN_KEYS[d])}`}
-                onClick={() => engine.setFanDir(d)}
-              >
-                {a}
-              </button>
-            )
-          )}
+          {PAD.map(([d, a]) => (
+            <button
+              key={d}
+              type="button"
+              style={{ '--a': `${d * 45}deg` } as React.CSSProperties}
+              aria-pressed={d === ui.fanDir}
+              aria-label={`${tr('opt.fanDir')}: ${tr('fan.' + FAN_KEYS[d])}`}
+              onClick={() => engine.setFanDir(d)}
+            >
+              <span>{a}</span>
+            </button>
+          ))}
+          <i aria-hidden="true" />
         </div>
         <span>{tr('opt.fanBlows', { dir: tr('fan.' + FAN_KEYS[ui.fanDir]) })}</span>
+        <label>
+          {tr('opt.swing')} <Seg name={tr('opt.swing')} items={[0, 6, 12]} cur={ui.swing} onPick={(v) => engine.setSwing(v)} />
+        </label>
       </>
     );
   }
@@ -233,6 +234,7 @@ export function Stage({ engine, ui }: Props) {
             <canvas ref={lg} width={180} height={10} />
             <span>{ui.legend.max}</span>
           </div>
+          <span className="cfdnote">{t('legend.cfd')}</span>
         </div>
         {ui.status && <div className="status">{ui.status}</div>}
       </div>

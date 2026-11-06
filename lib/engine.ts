@@ -10,7 +10,7 @@ import { clampCell, inb, isShape, line4, put, shapeCells, stamp, type Pt, type S
 import { DEFAULT_PLAN_PRESET, PRESETS } from './presets';
 import { hitItem, TEXT_MAX, TEXT_SIZE_M, COORD_MAX, type WorldItem } from './world';
 import { deserializeProject, fromProjectHash, MAX_BOARDS, NAME_MAX, PROJECT_VERSION, serializeProject, toProjectHash, type Project } from './project';
-import { Sim, T_FAN, T_HEAT, T_OPEN, T_SCREEN, T_WALL, type Mode, type RoomStat, type Score } from './sim';
+import { Sim, T_DOOR, T_FAN, T_HEAT, T_OPEN, T_SCREEN, T_WALL, type Mode, type RoomStat, type Score } from './sim';
 import { MODES, TOOLS, type View } from './tools';
 
 /* ------------------------------------------------------------------ types */
@@ -28,6 +28,7 @@ export interface UiState {
   tool: Tool;
   brush: { wall: number; open: number; erase: number };
   fanDir: number;
+  swing: number;
   running: boolean;
   view: View;
   particles: boolean;
@@ -301,6 +302,7 @@ export class Engine {
       tool: this.tool,
       brush: { ...this.brush },
       fanDir: this.fanDir,
+      swing: s.swing,
       running: this.running,
       view: this.view,
       particles: this.particlesOn,
@@ -1123,6 +1125,11 @@ export class Engine {
     }
     const c = this.cellAt(e);
     this.pre = this.types();
+    if (tool === 'door' || (tool === 'fan' && this.sim.cell[this.sim.idx(c.x, c.y)] === T_FAN)) {
+      this.clickEdit(tool, c.x, c.y);
+      e.preventDefault();
+      return;
+    }
     this.drag = { tool, start: c, cur: c, last: c, count: 0, shift: e.shiftKey, shape: null };
     if (isShape(tool)) this.drag.shape = shapeCells(tool, c, c, e.shiftKey, this.brush.wall);
     else {
@@ -1130,6 +1137,37 @@ export class Engine {
       this.sim.rebuild();
     }
     e.preventDefault();
+  }
+  /** Click-only edits: a door swings open or shut, a placed fan turns 45 degrees. */
+  private clickEdit(tool: Tool, x: number, y: number): void {
+    const s = this.sim,
+      pre = this.pre!;
+    if (!inb(s, x, y)) return;
+    const c0 = s.idx(x, y),
+      isLeaf = (c: number) => s.cell[c] === T_OPEN || s.cell[c] === T_DOOR;
+    if (tool === 'fan') s.fdir[c0] = (s.fdir[c0] + 1) & 7;
+    else {
+      let hit = c0;
+      if (!isLeaf(hit)) {
+        const near = [-1, 1, -s.S, s.S, -s.S - 1, -s.S + 1, s.S - 1, s.S + 1].map((o) => c0 + o).find((c) => c > 0 && c < s.N && isLeaf(c));
+        if (near === undefined) return;
+        hit = near;
+      }
+      const seen = new Set([hit]),
+        q = [hit];
+      for (let i = 0; i < q.length; i++)
+        for (const o of [-1, 1, -s.S, s.S, -s.S - 1, -s.S + 1, s.S - 1, s.S + 1]) {
+          const n = q[i] + o;
+          if (n > 0 && n < s.N && !seen.has(n) && isLeaf(n)) {
+            seen.add(n);
+            q.push(n);
+          }
+        }
+      const next = s.cell[hit] === T_OPEN ? T_DOOR : T_OPEN;
+      for (const c of q) s.cell[c] = next;
+    }
+    this.pushHist(pre);
+    this.afterEdit();
   }
   private pointerMove(e: PointerEvent): void {
     if (this.boardDrag) {
@@ -1256,6 +1294,10 @@ export class Engine {
   };
   setFanDir = (d: number): void => {
     this.fanDir = d & 7;
+    this.emit();
+  };
+  setSwing = (period: number): void => {
+    this.sim.swing = period;
     this.emit();
   };
   rotateFan = (): void => {
@@ -1834,6 +1876,7 @@ export class Engine {
       h = s.cellSize;
     const pos = `x ${fmt((cx + 0.5) * h, 1)} m, y ${fmt((cy + 0.5) * h, 1)} m`;
     if (t === T_WALL) return pos + ' | ' + this.t('probe.wall');
+    if (t === T_DOOR) return pos + ' | ' + this.t('probe.door');
     const lab = s.labels[c];
     const where =
       t === T_SCREEN
@@ -2041,6 +2084,16 @@ export class Engine {
     ctx.fillStyle = C.wall;
     ctx.fill(this.runsPath((c) => cell[c] === T_WALL));
     ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = C.wall;
+    ctx.fill(this.runsPath((c) => cell[c] === T_DOOR));
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = C.accent;
+    ctx.lineWidth = Math.max(1, this.DPR);
+    ctx.setLineDash([4 * this.DPR, 3 * this.DPR]);
+    ctx.stroke(this.runsPath((c) => cell[c] === T_DOOR));
+    ctx.restore();
+    ctx.save();
     ctx.globalAlpha = 0.6;
     ctx.fillStyle = C.glass;
     ctx.fill(this.runsPath((c) => cell[c] === T_OPEN));
@@ -2108,7 +2161,7 @@ export class Engine {
     ctx.fillText(t, x + 6 * D, y + 14 * D);
     ctx.restore();
   }
-  private drawFan(c: number): void {
+  private drawFan(c: number, ghostDir?: number): void {
     const ctx = this.ctx!,
       s = this.sim,
       S = s.S,
@@ -2117,9 +2170,10 @@ export class Engine {
       C = this.C;
     const x = ((c % S) - 0.5) * P,
       y = (((c / S) | 0) - 0.5) * P,
-      d = s.fdir[c],
+      d = ghostDir ?? s.fanDirNow(c),
       r = P * 1.15;
     ctx.save();
+    if (ghostDir !== undefined) ctx.globalAlpha = 0.55;
     ctx.translate(x, y);
     ctx.rotate((d * Math.PI) / 4);
     ctx.fillStyle = C.panel;
@@ -2136,6 +2190,12 @@ export class Engine {
     ctx.lineTo(r * 0.5, 0);
     ctx.lineTo(r * 0.1, r * 0.4);
     ctx.stroke();
+    if (s.swing > 0) {
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.45, -0.6, 0.6);
+      ctx.stroke();
+    }
     ctx.restore();
   }
   private drawParticles(): void {
@@ -2368,6 +2428,14 @@ export class Engine {
       ctx.lineWidth = Math.max(1.5, DPR * 1.5);
       ctx.strokeRect((hv.x - off) * P, (hv.y - off) * P, sz * P, sz * P);
       ctx.restore();
+      if (t === 'fan' && inb(s, hv.x, hv.y)) this.drawFan(s.idx(hv.x, hv.y), this.fanDir);
+      else if (t === 'heat' && inb(s, hv.x, hv.y)) {
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = this.C.heat;
+        ctx.fillRect(hv.x * P, hv.y * P, P, P);
+        ctx.restore();
+      }
     }
   }
   private drawHUD(): void {
@@ -2412,6 +2480,44 @@ export class Engine {
 
   /* ----------------------------------------------------------- GIF export */
   /** Records GIF_SEC seconds of the canvas as it runs, then downloads it as an animated GIF. */
+  /** Saves the canvas as it is on screen, with the "not CFD" caption burnt into the corner like the GIF does. */
+  exportPng = (): void => {
+    const src = this.cv;
+    if (!src) return;
+    const out = document.createElement('canvas');
+    out.width = src.width;
+    out.height = src.height;
+    const g = out.getContext('2d');
+    if (!g) {
+      this.gifMsg = this.t('png.failed');
+      this.emit();
+      return;
+    }
+    g.drawImage(src, 0, 0);
+    const size = Math.max(11, Math.round(src.width / 80));
+    g.font = `500 ${size}px ui-monospace, Menlo, monospace`;
+    g.textBaseline = 'bottom';
+    const text = this.t('gif.caption'),
+      w = g.measureText(text).width + size * 1.2;
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(0, out.height - size * 2, w, size * 2);
+    g.fillStyle = '#fff';
+    g.fillText(text, size * 0.6, out.height - size * 0.5);
+    out.toBlob((blob) => {
+      if (!blob) {
+        this.gifMsg = this.t('png.failed');
+        this.emit();
+        return;
+      }
+      const url = URL.createObjectURL(blob),
+        a = document.createElement('a');
+      a.href = url;
+      a.download = 'crossdraft.png';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
+  };
+
   recordGif = (): void => {
     if (this.rec || this.sweepRun || !this.cv) return;
     const scale = Math.min(1, GIF_MAX_W / this.cv.width),

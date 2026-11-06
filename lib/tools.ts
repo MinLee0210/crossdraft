@@ -9,13 +9,20 @@ export interface ToolDef {
 }
 
 export const TOOLS: ToolDef[] = [
-  { id: 'select', name: 'Select', key: 'V', tip: 'Click a board to select it, drag it to move it', icon: 'M5 3l14 7-6 2-2 6z' },
-  { id: 'wall', name: 'Wall', key: '1', tip: 'Draw walls freehand', icon: 'M4 20l1-4L16 5l3 3L8 19z' },
-  { id: 'line', name: 'Line', key: '2', tip: 'Straight wall. Hold Shift for 45 degree steps', icon: 'M5 19L19 5' },
-  { id: 'box', name: 'Room', key: '3', tip: 'Rectangular room outline', icon: 'M5 6h14v12H5z' },
-  { id: 'block', name: 'Block', key: '4', tip: 'Solid block: neighbouring building, tree, furniture', icon: 'M5 6h14v12H5z' },
-  { id: 'open', name: 'Opening', key: '5', tip: 'Cut a door or window: drag along a wall', icon: 'M3 12h4M10 12h4M17 12h4M3 8v8M21 8v8' },
-  { id: 'fan', name: 'Fan', key: '6', tip: 'Place a fan. Press R to rotate', icon: 'M12 12h8M17 8l4 4-4 4M4 12a3.2 3.2 0 1 0 6.4 0 3.2 3.2 0 1 0-6.4 0' },
+  { id: 'select', name: 'Select', key: 'V', tip: 'Click a board to select it, drag it to move it', icon: 'M6 4l12 6.5-5.2 1.6-1.8 5.4z' },
+  { id: 'wall', name: 'Wall', key: '1', tip: 'Draw walls freehand', icon: 'M4 20l.8-3.8L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L7.8 19.2zM14.5 6.5l3 3' },
+  { id: 'line', name: 'Line', key: '2', tip: 'Straight wall. Hold Shift for 45 degree steps', icon: 'M5 19L19 5M4 20h.01M20 4h.01' },
+  { id: 'box', name: 'Room', key: '3', tip: 'Rectangular room outline', icon: 'M5 5h14v14H5zM9 5v3M5 15h3' },
+  { id: 'block', name: 'Block', key: '4', tip: 'Solid block: neighbouring building, tree, furniture', icon: 'M6 6h12v12H6zM6 6l12 12' },
+  { id: 'open', name: 'Opening', key: '5', tip: 'Cut a door or window: drag along a wall', icon: 'M4 5v14M20 5v14M8 12h2M14 12h2' },
+  { id: 'door', name: 'Door', key: 'D', tip: 'Click a door or opening to close or open it', icon: 'M7 20V5.5L16 4v16M5 20h14M13 12h.01' },
+  {
+    id: 'fan',
+    name: 'Fan',
+    key: '6',
+    tip: 'Place a fan. Press R to rotate',
+    icon: 'M12 12.5v.01M12 12c-1-3-.5-6 1.5-7M12 12c3-1 6-.5 7 1.5M12 12c1 3 .5 6-1.5 7M12 12c-3 1-6 .5-7-1.5'
+  },
   {
     id: 'heat',
     name: 'Heater',
@@ -23,8 +30,20 @@ export const TOOLS: ToolDef[] = [
     tip: 'Heat source (drives flow in Section view)',
     icon: 'M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 .3 1.6 1 2 2 2 0-3-1-5 1-8z'
   },
-  { id: 'screen', name: 'Screen', key: '8', tip: 'Screen, plant or curtain: air passes through but slows down', icon: 'M5 5v14M10 5v14M15 5v14M20 5v14' },
-  { id: 'erase', name: 'Erase', key: '9', tip: 'Erase. Right-click erases with any tool', icon: 'M7 17l-3-3 9-9 6 6-6 6H7zM11 19h9' },
+  {
+    id: 'screen',
+    name: 'Screen',
+    key: '8',
+    tip: 'Screen, plant or curtain: air passes through but slows down',
+    icon: 'M4 6c2-2 4 2 6 0s4 2 6 0 3 1 4 0M4 12c2-2 4 2 6 0s4 2 6 0 3 1 4 0M4 18c2-2 4 2 6 0s4 2 6 0 3 1 4 0'
+  },
+  {
+    id: 'erase',
+    name: 'Erase',
+    key: '9',
+    tip: 'Erase. Right-click erases with any tool',
+    icon: 'M8 20l-4-4a1.5 1.5 0 0 1 0-2l9-9a1.5 1.5 0 0 1 2 0l5 5a1.5 1.5 0 0 1 0 2L12 20zM8 20h12M8 11l6 6'
+  },
   { id: 'text', name: 'Note', key: 'T', tip: 'Write a note anywhere around the board', icon: 'M5 6V4h14v2M12 4v16M9 20h6' },
   { id: 'arrow', name: 'Arrow', key: 'A', tip: 'Draw an arrow around the board. Hold Shift for 45 degree steps', icon: 'M5 19L19 5M9 5h10v10' },
   {

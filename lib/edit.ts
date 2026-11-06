@@ -1,7 +1,7 @@
 import { clamp } from './format';
 import { T_FAN, type Sim } from './sim';
 
-export type Tool = 'select' | 'wall' | 'line' | 'box' | 'block' | 'open' | 'fan' | 'heat' | 'screen' | 'erase' | 'text' | 'arrow' | 'board';
+export type Tool = 'select' | 'wall' | 'line' | 'box' | 'block' | 'open' | 'door' | 'fan' | 'heat' | 'screen' | 'erase' | 'text' | 'arrow' | 'board';
 export interface Pt {
   x: number;
   y: number;

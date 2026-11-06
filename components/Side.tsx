@@ -801,6 +801,13 @@ function Code({ engine, ui }: Props) {
   );
 }
 
+const TAB_ICON: Record<string, string> = {
+  boards: 'M4 5h7v7H4zM13 5h7v7h-7zM4 14h7v5H4zM13 14h7v5h-7z',
+  wind: 'M3 9h11a3 3 0 1 0-3-3M3 15h15a3 3 0 1 1-3 3M3 12h6',
+  results: 'M5 19V11M12 19V5M19 19v-6',
+  compare: 'M8 5v14M16 5v14M4 9l4-4 4 4M12 15l4 4 4-4',
+  layouts: 'M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4'
+};
 const TABS = ['boards', 'wind', 'results', 'compare', 'layouts'] as const;
 type TabId = (typeof TABS)[number];
 
@@ -812,7 +819,10 @@ export function Side({ engine, ui, open }: Props & { open: boolean }) {
       <div className="tabs" role="tablist" aria-label={t('tab.label')}>
         {TABS.map((id) => (
           <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id} aria-controls="sidepanel" onClick={() => setTab(id)}>
-            {t(`tab.${id}`)}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d={TAB_ICON[id]} />
+            </svg>
+            <span>{t(`tab.${id}`)}</span>
           </button>
         ))}
       </div>
