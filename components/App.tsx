@@ -6,6 +6,9 @@ import type { Lang } from '@/lib/i18n';
 import { TOOLS } from '@/lib/tools';
 import { I18nProvider, useT } from './I18n';
 import { LangToggle } from './LangToggle';
+import { Onboard } from './Onboard';
+import { Palette } from './Palette';
+import { ShareMenu } from './Share';
 import { Side } from './Side';
 import { Stage } from './Stage';
 import { ThemeToggle } from './ThemeToggle';
@@ -17,6 +20,17 @@ function Shell({ engine }: { engine: Engine }) {
   const ui = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot);
   const t = useT();
   const [sideOpen, setSideOpen] = useState(true);
+  const [palette, setPalette] = useState(false);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPalette((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
   // Small screens start with the panel closed. Runs after mount so server and client markup match.
   useEffect(() => {
     if (window.innerWidth < 900) setSideOpen(false);
@@ -53,17 +67,17 @@ function Shell({ engine }: { engine: Engine }) {
         <Stage engine={engine} ui={ui} />
         <div className="hud hud-tl">
           <div className="hudcard menu">
-            <div className="brand">
+            <a className="brand" href={ui.lang === 'vi' ? '/vi' : '/'} aria-label="Crossdraft">
               <svg className="logo" viewBox="0 0 30 30" aria-hidden="true">
-                <path d="M3 10h14.5a3.8 3.8 0 1 0-3.8-3.8" />
-                <path d="M3 16h20.5a3.8 3.8 0 1 1-3.8 3.8" />
-                <path d="M3 22h9" />
+                <path d="M15 3v6M15 21v6" />
+                <path d="M3 15c4-7 8-7 12 0s8 7 12 0" />
+                <path d="M23 11.5l4 3.5-4 3.5" />
               </svg>
               <div>
                 <h1>Crossdraft</h1>
                 <span>{t('app.tagline')}</span>
               </div>
-            </div>
+            </a>
             <a className="btn icon" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label={t('github.label')} title={t('github.label')}>
               <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true">
                 <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
@@ -72,8 +86,22 @@ function Shell({ engine }: { engine: Engine }) {
             <a className="btn sm" href={ui.lang === 'vi' ? '/vi/learn' : '/learn'} title={t('nav.guideTip')}>
               {t('nav.guide')}
             </a>
-            <button type="button" className="btn sm" onClick={() => void engine.copyLink()} title={t('share.button')}>
-              {ui.shareMsg || t('share.button')}
+            <ShareMenu engine={engine} ui={ui} />
+            <button type="button" className="btn icon" onClick={() => setPalette(true)} aria-label={t('cmd.open')} title={t('cmd.open')}>
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="6.5" />
+                <path d="M16 16l4.5 4.5" />
+              </svg>
             </button>
             <LangToggle lang={ui.lang} onPick={setLang} />
             <ThemeToggle />
@@ -116,7 +144,9 @@ function Shell({ engine }: { engine: Engine }) {
             </svg>
           </button>
         </div>
+        <Onboard engine={engine} />
         <Side engine={engine} ui={ui} open={sideOpen} />
+        {palette && <Palette engine={engine} ui={ui} onClose={() => setPalette(false)} setLang={setLang} setSide={setSideOpen} />}
       </div>
     </div>
   );

@@ -7,7 +7,8 @@ export const T_EMPTY = 0,
   T_OPEN = 2,
   T_FAN = 3,
   T_HEAT = 4,
-  T_SCREEN = 5;
+  T_SCREEN = 5,
+  T_DOOR = 6;
 /** Loss coefficient of a screen, plant or curtain cell: pressure drop = 0.5 * rho * K * u^2 across one cell. Plausible, not measured. */
 export const SCREEN_K = 5;
 const R2 = Math.SQRT1_2;
@@ -166,6 +167,7 @@ export class Sim {
   fans: number[] = [];
   heaters: number[] = [];
   screens: number[] = [];
+  swing = 0; // fan oscillation period in s, 0 = fixed
   sideKind: number[] = [0, 0, 0, 0]; // L,R,T,B : 0 outflow, 1 inflow, 2 wall
   t = 0;
   maxV = 0;
@@ -176,6 +178,13 @@ export class Sim {
   private queue!: Int32Array;
   ex = 3;
   ey = 0;
+
+  /** Direction of a fan right now: its set direction, nudged one 45 degree step each way when oscillating. */
+  fanDirNow(c: number): number {
+    const d = this.fdir[c];
+    if (this.swing <= 0) return d;
+    return (d + Math.round(Math.sin((2 * Math.PI * this.t) / this.swing) * 1.4) + 8) & 7;
+  }
 
   constructor(W: number, H: number) {
     this.alloc(W, H);
@@ -253,7 +262,7 @@ export class Sim {
       let c = j * S + 1;
       for (let i = 1; i <= W; i++, c++) {
         const t = cell[c];
-        if (t === T_WALL) {
+        if (t === T_WALL || t === T_DOOR) {
           solid[c] = 1;
           pNeu[c] = 1;
           this.u[c] = 0;
@@ -329,7 +338,7 @@ export class Sim {
       for (let i = 1; i <= W; i++) {
         const c = i + j * S,
           t = cell[c];
-        if (lab[c] !== 0 || t === T_WALL || t === T_OPEN) continue;
+        if (lab[c] !== 0 || t === T_WALL || t === T_DOOR || t === T_OPEN) continue;
         let head = 0,
           tail = 0,
           border = false,
@@ -344,7 +353,7 @@ export class Sim {
           for (const o of offs) {
             const z = m + o;
             if (lab[z] === -9) border = true;
-            else if (lab[z] === 0 && cell[z] !== T_WALL && cell[z] !== T_OPEN) {
+            else if (lab[z] === 0 && cell[z] !== T_WALL && cell[z] !== T_DOOR && cell[z] !== T_OPEN) {
               lab[z] = -2;
               q[tail++] = z;
             }
@@ -632,7 +641,7 @@ export class Sim {
     }
     for (const c of this.fans) {
       // fans: 3-cell wide jet
-      const d = this.fdir[c],
+      const d = this.fanDirNow(c),
         fx = FAN_VEC[d][0] * this.fanSpeed,
         fy = FAN_VEC[d][1] * this.fanSpeed;
       for (const x of fanJetCells(c, d, S, this.N))

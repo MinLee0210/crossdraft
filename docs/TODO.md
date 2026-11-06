@@ -3,6 +3,7 @@
 Next steps, in order. Longer-term direction is in `docs/ROADMAPS.md`; shipped work and decisions are in `docs/PLAN.md`.
 
 ## Do next (small, high value for students)
+
 - [x] Add 3 local example layouts (tube house with light well, one-sided apartment, courtyard house) to `lib/presets.ts`, each with a short "what to notice" line shown under the picker. (Plan only; a Section version of the tube house is still open.)
 - [x] Plain-language insight box under Rooms (`lib/insights.ts`, `lib/openings.ts`). Waits 40 s without edits before judging a run.
 - [x] Share link: layout in the URL hash (`toHash` / `fromHash`), loaded on startup, "Share link" button in the header.
@@ -10,15 +11,18 @@ Next steps, in order. Longer-term direction is in `docs/ROADMAPS.md`; shipped wo
 - [x] UI strings in a dictionary (`lib/i18n.ts`), English and Vietnamese, EN/VI switch in the header. **Needs a native-speaker review** of the Vietnamese.
 
 ## Then: Phong Thuy mode (opt-in)
+
 - [x] Detect "front door aligned with back door/window" (`lib/phongthuy.ts`) and mark it with a dashed line; opt-in "Phong Thuy checks" overlay.
-- [x] Measure and show: through-flow speed at the entrance (mean speed along the aligned line) and how long air lingers near it: `Alignment.linger`, the mean air age within `ENTRY_M` (2 m) inside the entry opening minus the age the air had at the opening, shown under the line rule once settled. The entry is the end with the youngest air. Finding: a porous screen just inside the entrance *shortens* it (about 9 s to 1 s in `tests/solver.entry.test.ts`), because it removes the eddies beside the incoming jet.
+- [x] Measure and show: through-flow speed at the entrance (mean speed along the aligned line) and how long air lingers near it: `Alignment.linger`, the mean air age within `ENTRY_M` (2 m) inside the entry opening minus the age the air had at the opening, shown under the line rule once settled. The entry is the end with the youngest air. Finding: a porous screen just inside the entrance _shortens_ it (about 9 s to 1 s in `tests/solver.entry.test.ts`), because it removes the eddies beside the incoming jet.
 - [x] Tool: screen / plant / curtain as a porous obstacle (cell type 5, quadratic drag `SCREEN_K`, key 9 is now Erase and 8 is Screen). Door-alignment check flags a screen on the line, and there is an "Aligned windows with a screen" example for A/B tests. Loss coefficient is plausible, not measured.
 - [x] Closed rule list (`lib/fengshui.ts`): four airflow rules (front-to-back line, entrance buffer, wind and openings, stagnant air), each shown with a status, what tradition says, and what the simulation measured. A "not checked" list names what Crossdraft does not cover. No luck score; tests fail if luck, wealth or health words appear in the text.
 - [x] Source links for the tradition statements in the feng shui panel (`FS_SOURCES` in `lib/fengshui.ts`, checked 2026-10-11). Practitioner articles, labelled "not science"; the huyen quan source was checked from a search excerpt only.
 - [ ] Decide: separate page or a toggle? (see ROADMAPS open questions)
 
 ## Later: "Explain with AI" (OpenRouter free tier)
+
 Decision: consider later. The rule list above is the closed input and guardrail for it. Evaluation so far (see `docs/ROADMAPS.md`, "Explain with AI"):
+
 - [ ] Browser test first: does `openrouter.ai/api/v1` accept calls straight from the browser (CORS), does the "Sign in with OpenRouter" PKCE login work from a static page, and can the free model list be fetched?
 - [ ] Bake-off: run 5 sample layouts through 3-4 current `:free` models, in English and Vietnamese, and pick by how well they follow the closed rules (no invented doctrine, no luck claims).
 - [ ] Button "Explain with AI (free)": PKCE login so each visitor uses their own free quota (shared key is not viable: ~20 requests/min and ~50/day per account without a $10 purchase). Key kept in local storage.
@@ -27,6 +31,7 @@ Decision: consider later. The rule list above is the closed input and guardrail 
 - [ ] Re-check OpenRouter's current limits and privacy terms on its own site before building (figures came from secondary sources).
 
 ## Quality (needed before promoting widely)
+
 - [x] GitHub Actions: typecheck, test, build on every push.
 - [x] Speed up the solver tests: ~125 s to ~45 s locally. Split into `tests/solver.{basic,houses,heat,units}.test.ts` so vitest runs them in parallel, and the heat-gain test uses a smaller grid (wider ordering margins). Shared setup in `tests/helpers.ts`.
 - [ ] Browser smoke test (Playwright): load page, draw a wall, switch theme, export/import a code. The Next.js port has only been checked by typecheck, build and unit tests.
@@ -34,18 +39,41 @@ Decision: consider later. The rule list above is the closed input and guardrail 
 - [x] Unit tests for `roomStats` / `Sim.score` edge cases and all 8 fan directions (`tests/solver.units.test.ts`, `tests/solver.basic.test.ts`).
 
 ## Carried over from PLAN.md
+
 - [x] Wind-direction sweep with a wind rose (`lib/sweep.ts`, `components/WindRose.tsx`): 8 or 16 directions, ranked table, click to apply a wind. Runs time-sliced on the main thread (about a minute); a Web Worker would be smoother.
 - [ ] Trace a plan (image underlay with scale)
-- [ ] PNG export of the result
+- [x] PNG export of the result (Share and export menu, `Engine.exportPng`)
 - [x] Animated GIF export (`lib/gif.ts`, "Record GIF" in the run bar): 5 s of the live canvas at about 12 fps, up to 640 px wide, one median-cut palette from the first frame, with an "indicative 2D, not CFD" caption burnt in. Not yet checked in a real browser by an automated test.
 - [ ] Engineer metrics (air changes per hour, flow per opening)
 
 ## Boards
+
 - [x] Several boards on one canvas, each with its own drawing, wind and mode; Board tool, duplicate, rename, delete, move by title; project code and share link carry all boards and notes.
 - [ ] Linked copies: a board that follows another board's walls and openings (edit once, all update) but keeps its own wind. `BoardRec.link` is reserved in the project format; the engine does not use it yet.
 - [ ] Resize a board by dragging its edges.
 - [ ] Undo for notes and arrows, and for board creation, moves and deletes.
 
+## UI and landing
+
+- [x] Landing page (EN `/`, VI `/vi`, copy in `lib/landing.ts`), app moved to `/app`, app and guide restyled, Space Grotesk display font, deeper light accent.
+- [x] Fan direction picker is a circular dial of 8 buttons (`.pad` in `app/globals.css`).
+- [x] One radius scale (`--r-sm/md/lg/xl/pill` in `app/globals.css`); no literal radii except circles and tiny bars.
+- [ ] Refresh `public/og.png` to match the new landing page.
+- [x] Onboarding: never an empty grid. Open `/app` on a preset that is already running (live airflow, particles) so people see the product work first, plus a dismissible coach-mark row (draw walls, place a fan, set the wind) and a "Start blank" action.
+- [x] Side panel tabs now carry icons (collapse already exists via the panel toggle).
+- [x] Field legend with units (m/s) and an "indicative, not CFD" chip.
+- [x] Command palette (Cmd/Ctrl+K): tools, presets, language, theme.
+- [x] Ghost preview of fan and heater under the cursor.
+- [x] Phone layout: compact menu, trimmed run bar and legend (<=760px); the side panel was already a bottom drawer.
+- [x] One "Share and export" menu: link, PNG, GIF (`components/Share.tsx`, `Engine.exportPng`).
+
 ## Known tidy-ups
+
 - [x] Fan jet near grid edges: verified it cannot wrap (neighbours are at most one cell away, so they land in the ghost ring); `fanJetCells` extracted and tested. The new direction tests found a different bug, fixed: diagonal fans were weak because their three cells only touched at corners (see `docs/PLAN.md`).
 - [ ] Use `textContent`-style rendering (React already escapes) if room renaming is added; keep it escaped.
+
+## Done: doors, fan rotation, icons
+
+- [x] Door tool (D): click toggles a whole opening/door run closed or open; closed doors block air like walls.
+- [x] Fan: click a placed fan to turn it 45 degrees; Swing option oscillates it without changing the saved layout.
+- [x] Tool icons redrawn in one 24px stroke style.

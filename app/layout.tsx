@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google';
 import './globals.css';
+import './landing.css';
 import { HOME_DESCRIPTION, HOME_TITLE, OG_IMAGE } from '@/lib/seo';
 import { AUTHOR, SITE_NAME, SITE_URL } from '@/lib/site';
 
 // 'vietnamese' is required: without it ă, ơ, ư, ạ and the stacked tone marks fall back to a system font.
 const sans = Inter({ subsets: ['latin', 'latin-ext', 'vietnamese'], variable: '--font-sans', display: 'swap' });
+const display = Space_Grotesk({ subsets: ['latin', 'latin-ext', 'vietnamese'], weight: ['500', '600', '700'], variable: '--font-display', display: 'swap' });
 const mono = JetBrains_Mono({ subsets: ['latin', 'latin-ext', 'vietnamese'], weight: ['400', '500', '600'], variable: '--font-mono', display: 'swap' });
 
 export const metadata: Metadata = {
@@ -27,7 +29,7 @@ export const metadata: Metadata = {
     'mô phỏng gió',
     'phong thủy'
   ],
-  alternates: { canonical: '/' },
+  alternates: { canonical: '/', languages: { en: '/', vi: '/vi', 'x-default': '/' } },
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
@@ -55,7 +57,7 @@ const themeInit = `try{var t=localStorage.getItem('crossdraft.theme');if(t==='li
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${mono.variable} ${display.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>

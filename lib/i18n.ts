@@ -94,6 +94,9 @@ export const EN: Dict = {
   'opt.open': 'Drag along a wall to cut a door or window. Use 3 for thick walls.',
   'opt.erase': 'Right-click erases with any tool.',
   'opt.text': 'Click anywhere, on or around the board, and type. Click a note to edit it. Notes are illustration only; the wind ignores them.', 'opt.arrow': 'Drag to draw an arrow. Notes and arrows are saved with the layout code.', 'note.placeholder': 'Type a note, press Enter',
+  'tool.door.name': 'Door', 'tool.door.tip': 'Click a door or opening to close or open it',
+  'opt.door': 'Click a door or opening to swing it shut or open. A closed door blocks air like a wall.',
+  'opt.swing': 'Swing (s, 0 = fixed)', 'probe.door': 'closed door',
   'opt.fanDir': 'Fan direction', 'opt.fanBlows': 'Blows {dir}. Press R to rotate. Speed is under Physics.',
   'opt.heatSection': 'Warm air rises from heaters, people and appliances. Paint a few cells on the floor.',
   'opt.heatPlan': 'A fixed-temperature source (oven, radiator, server). In Plan it only warms the air passing by. Switch to Section to see it make air rise.',
@@ -152,7 +155,17 @@ export const EN: Dict = {
   'code.title': 'Save and load', 'code.label': 'Layout code', 'code.placeholder': 'Press Export to get a layout code, or paste one here and press Import.',
   'code.export': 'Export', 'code.copy': 'Copy', 'code.import': 'Import',
   'msg.codeReady': 'Layout code ready. Copy it somewhere safe.', 'msg.copied': 'Copied.', 'msg.copyManual': 'Select the text and press Ctrl+C to copy.', 'msg.loaded': 'Layout loaded.',
-  'msg.badCode': 'Could not read that code:', 'msg.badLink': 'Could not open the share link:', 'msg.needRoom': 'Draw at least one closed room before testing.'
+  'msg.badCode': 'Could not read that code:', 'msg.badLink': 'Could not open the share link:', 'msg.needRoom': 'Draw at least one closed room before testing.',
+
+  'onb.title': 'Watch the air move first', 'onb.body': 'This is a live example. Pick a tool and change it: the airflow follows every edit.',
+  'onb.s1': 'Draw walls and openings', 'onb.s2': 'Place a fan or a heater', 'onb.s3': 'Turn the wind in the Wind tab',
+  'onb.got': 'Got it', 'onb.blank': 'Start blank', 'onb.close': 'Close the tour',
+  'legend.cfd': 'Indicative, not CFD',
+  'cmd.open': 'Commands (Ctrl+K)', 'cmd.title': 'Command palette', 'cmd.placeholder': 'Type a command or a tool…', 'cmd.empty': 'No match',
+  'cmd.tools': 'Tools', 'cmd.examples': 'Examples', 'cmd.actions': 'Actions', 'cmd.settings': 'Settings',
+  'cmd.run': 'Run or pause', 'cmd.undo': 'Undo', 'cmd.redo': 'Redo', 'cmd.fit': 'Fit the board to the window', 'cmd.guide': 'Open the guide',
+  'cmd.langEn': 'Language: English', 'cmd.langVi': 'Language: Tiếng Việt',
+  'share.menu': 'Share and export', 'share.link': 'Copy link', 'png.button': 'Save PNG', 'png.failed': 'Could not save the image.'
 };
 
 /* Vietnamese. Please have a native speaker review before wider release. */
@@ -271,6 +284,9 @@ export const VI: Dict = {
   'opt.erase': 'Nhấn chuột phải để xóa với bất kỳ công cụ nào.',
   'opt.text': 'Nhấn vào bất kỳ đâu, trên hoặc quanh bảng, rồi gõ chữ. Nhấn vào ghi chú để sửa. Ghi chú chỉ để minh họa; gió không tính đến chúng.', 'opt.arrow': 'Kéo để vẽ mũi tên. Ghi chú và mũi tên được lưu cùng mã bản vẽ.', 'note.placeholder': 'Gõ ghi chú, nhấn Enter',
   'tool.text.name': 'Ghi chú', 'tool.text.tip': 'Viết ghi chú ở bất kỳ đâu quanh bảng', 'tool.arrow.name': 'Mũi tên', 'tool.arrow.tip': 'Vẽ mũi tên quanh bảng. Giữ Shift để vẽ theo bước 45 độ',
+  'tool.door.name': 'Cửa', 'tool.door.tip': 'Bấm vào cửa hoặc ô mở để đóng hoặc mở',
+  'opt.door': 'Bấm vào cửa hoặc ô mở để đóng hay mở. Cửa đóng chặn gió như tường.',
+  'opt.swing': 'Quạt quay (giây, 0 = cố định)', 'probe.door': 'cửa đóng',
   'opt.fanDir': 'Hướng quạt', 'opt.fanBlows': 'Thổi về hướng {dir}. Nhấn R để xoay. Tốc độ chỉnh ở mục Vật lý.',
   'opt.heatSection': 'Không khí nóng bay lên từ lò sưởi, người và thiết bị. Hãy tô vài ô trên sàn.',
   'opt.heatPlan': 'Nguồn có nhiệt độ cố định (bếp, lò sưởi, máy chủ). Ở Mặt bằng nó chỉ làm ấm không khí đi ngang qua. Chuyển sang Mặt cắt để thấy khí nóng bay lên.',
@@ -329,7 +345,17 @@ export const VI: Dict = {
   'code.title': 'Lưu và mở', 'code.label': 'Mã bản vẽ', 'code.placeholder': 'Nhấn Xuất để lấy mã bản vẽ, hoặc dán mã vào đây rồi nhấn Nhập.',
   'code.export': 'Xuất', 'code.copy': 'Sao chép', 'code.import': 'Nhập',
   'msg.codeReady': 'Mã bản vẽ đã sẵn sàng. Hãy sao chép và lưu lại.', 'msg.copied': 'Đã sao chép.', 'msg.copyManual': 'Hãy chọn đoạn văn bản và nhấn Ctrl+C để sao chép.', 'msg.loaded': 'Đã mở bản vẽ.',
-  'msg.badCode': 'Không đọc được mã này:', 'msg.badLink': 'Không mở được liên kết chia sẻ:', 'msg.needRoom': 'Hãy vẽ ít nhất một phòng kín trước khi test.'
+  'msg.badCode': 'Không đọc được mã này:', 'msg.badLink': 'Không mở được liên kết chia sẻ:', 'msg.needRoom': 'Hãy vẽ ít nhất một phòng kín trước khi test.',
+
+  'onb.title': 'Hãy xem gió chạy trước', 'onb.body': 'Đây là ví dụ đang chạy. Chọn một công cụ và chỉnh thử: luồng gió đổi theo từng thao tác.',
+  'onb.s1': 'Vẽ tường và ô cửa', 'onb.s2': 'Đặt quạt hoặc nguồn nhiệt', 'onb.s3': 'Xoay hướng gió ở mục Gió',
+  'onb.got': 'Đã hiểu', 'onb.blank': 'Bắt đầu trống', 'onb.close': 'Đóng hướng dẫn',
+  'legend.cfd': 'Tham khảo, không phải CFD',
+  'cmd.open': 'Lệnh (Ctrl+K)', 'cmd.title': 'Bảng lệnh', 'cmd.placeholder': 'Gõ lệnh hoặc tên công cụ…', 'cmd.empty': 'Không có kết quả',
+  'cmd.tools': 'Công cụ', 'cmd.examples': 'Bản vẽ mẫu', 'cmd.actions': 'Thao tác', 'cmd.settings': 'Cài đặt',
+  'cmd.run': 'Chạy hoặc tạm dừng', 'cmd.undo': 'Hoàn tác', 'cmd.redo': 'Làm lại', 'cmd.fit': 'Vừa khung bản vẽ với cửa sổ', 'cmd.guide': 'Mở hướng dẫn',
+  'cmd.langEn': 'Ngôn ngữ: English', 'cmd.langVi': 'Ngôn ngữ: Tiếng Việt',
+  'share.menu': 'Chia sẻ và xuất', 'share.link': 'Sao chép liên kết', 'png.button': 'Lưu PNG', 'png.failed': 'Không lưu được ảnh.'
 };
 
 /** Looks up a string, falling back to English and then to the key. `{name}` placeholders are filled from `vars`. */

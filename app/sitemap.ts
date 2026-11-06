@@ -14,7 +14,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     alternates: { languages: { en: at(learnPath('en', slug)), vi: at(learnPath('vi', slug)), 'x-default': at(learnPath('en', slug)) } }
   });
   return [
-    { url: at('/'), lastModified: CONTENT_UPDATED, changeFrequency: 'monthly', priority: 1 },
+    {
+      url: at('/'),
+      lastModified: CONTENT_UPDATED,
+      changeFrequency: 'monthly',
+      priority: 1,
+      alternates: { languages: { en: at('/'), vi: at('/vi'), 'x-default': at('/') } }
+    },
+    {
+      url: at('/vi'),
+      lastModified: CONTENT_UPDATED,
+      changeFrequency: 'monthly',
+      priority: 0.9,
+      alternates: { languages: { en: at('/'), vi: at('/vi'), 'x-default': at('/') } }
+    },
+    { url: at('/app'), lastModified: CONTENT_UPDATED, changeFrequency: 'monthly', priority: 0.9 },
     { url: at(learnPath('en')), ...guide() },
     { url: at(learnPath('vi')), ...guide() },
     ...SLUGS.flatMap((s) => [
