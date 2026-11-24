@@ -101,7 +101,7 @@ export const LANDING: {
       h: { en: 'Draw the plan', vi: 'Vẽ mặt bằng' },
       p: {
         en: 'Start from one of 18 examples or a blank board and place walls and openings.',
-        vi: 'Bắt đầu từ một trong 18 ví dụ hoặc bảng trống rồi đặt tường và ô mở.'
+        vi: 'Bắt đầu từ một trong 18 ví dụ hoặc bảng trống rồi đặt tường và ô cửa.'
       }
     },
     {

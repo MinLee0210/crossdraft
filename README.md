@@ -46,6 +46,8 @@ npm run build        # static export to out/
 `next.config.mjs` uses `output: 'export'`, so `npm run build` writes a static site to `out/`.
 Serve that folder from GitHub Pages, Cloudflare Pages, Netlify or Vercel.
 
+Browser tests: `npm run build && npm run e2e` (first time: `npx playwright install chromium`).
+
 Docker: `docker compose up --build` serves it with nginx on http://localhost:8080.
 
 Branches: work lands on `develop` (the default branch). Production on Vercel deploys from GitHub Actions only when `develop` is merged into `main`; it needs the repository secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.

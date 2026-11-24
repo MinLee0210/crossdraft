@@ -8,7 +8,7 @@ Next steps, in order. Longer-term direction is in `docs/ROADMAPS.md`; shipped wo
 - [x] Plain-language insight box under Rooms (`lib/insights.ts`, `lib/openings.ts`). Waits 40 s without edits before judging a run.
 - [x] Share link: layout in the URL hash (`toHash` / `fromHash`), loaded on startup, "Share link" button in the header.
 - [x] Wind presets for Vietnam (`lib/winds.ts`), labelled typical, not site data. Directions come from general knowledge and one VnExpress article: please review before promoting.
-- [x] UI strings in a dictionary (`lib/i18n.ts`), English and Vietnamese, EN/VI switch in the header. **Needs a native-speaker review** of the Vietnamese.
+- [x] UI strings in a dictionary (`lib/i18n.ts`), English and Vietnamese, EN/VI switch in the header. Terminology checked against Vietnamese sources on 2026-11-24 (`docs/VIETNAMESE.md`); **still needs a native-speaker read** for tone.
 
 ## Then: Phong Thuy mode (opt-in)
 
@@ -34,24 +34,25 @@ Decision: consider later. The rule list above is the closed input and guardrail 
 
 - [x] GitHub Actions: typecheck, test, build on every push.
 - [x] Speed up the solver tests: ~125 s to ~45 s locally. Split into `tests/solver.{basic,houses,heat,units}.test.ts` so vitest runs them in parallel, and the heat-gain test uses a smaller grid (wider ordering margins). Shared setup in `tests/helpers.ts`.
-- [ ] Browser smoke test (Playwright): load page, draw a wall, switch theme, export/import a code. The Next.js port has only been checked by typecheck, build and unit tests.
-- [ ] Touch and phone check of drawing; fix pointer issues if any.
+- [x] Browser smoke test (Playwright, `e2e/smoke.spec.ts`, `npm run e2e`): load, draw and undo, reload keeps the drawing, export/import, theme, save-failure banner, wind sweep in workers. GIF export and share link are still not covered.
+- [x] Touch drawing on a phone viewport is covered by the `@phone` e2e test (Pixel 7 emulation, one stroke). Pinch zoom and note typing on a real phone are not checked.
 - [x] Unit tests for `roomStats` / `Sim.score` edge cases and all 8 fan directions (`tests/solver.units.test.ts`, `tests/solver.basic.test.ts`).
 
 ## Carried over from PLAN.md
 
-- [x] Wind-direction sweep with a wind rose (`lib/sweep.ts`, `components/WindRose.tsx`): 8 or 16 directions, ranked table, click to apply a wind. Runs time-sliced on the main thread (about a minute); a Web Worker would be smoother.
+- [x] Wind-direction sweep with a wind rose (`lib/sweep.ts`, `components/WindRose.tsx`): 8 or 16 directions, ranked table, click to apply a wind. Each direction now runs in its own Web Worker (`lib/sweepRunner.ts`), with the old time-sliced main-thread run as a fallback.
 - [ ] Trace a plan (image underlay with scale)
 - [x] PNG export of the result (Share and export menu, `Engine.exportPng`)
 - [x] Animated GIF export (`lib/gif.ts`, "Record GIF" in the run bar): 5 s of the live canvas at about 12 fps, up to 640 px wide, one median-cut palette from the first frame, with an "indicative 2D, not CFD" caption burnt in. Not yet checked in a real browser by an automated test.
-- [ ] Engineer metrics (air changes per hour, flow per opening)
+- [x] Engineer metrics: air changes per hour per room and flow per opening (`lib/flow.ts`, a fold-out under Rooms). Indicative: assumes full-height openings. Not yet checked against a hand calculation.
 
 ## Boards
 
 - [x] Several boards on one canvas, each with its own drawing, wind and mode; Board tool, duplicate, rename, delete, move by title; project code and share link carry all boards and notes.
-- [ ] Linked copies: a board that follows another board's walls and openings (edit once, all update) but keeps its own wind. `BoardRec.link` is reserved in the project format; the engine does not use it yet.
-- [ ] Resize a board by dragging its edges.
-- [ ] Undo for notes and arrows, and for board creation, moves and deletes.
+- [x] Linked copies: `linkBoard` / `unlinkBoard`, followers mirror the source's size, cells and fans and keep their own wind; drawing on a follower is refused with a hint (`syncLinks` in `lib/engine.ts`).
+- [x] Resize a board by dragging its edges or corners (Select tool, plan only). Clears undo history.
+- [x] Undo for notes and arrows.
+- [x] Undo for board creation, deletes, moves, renames and unlinking (project-level stack ordered against drawing).
 
 ## UI and landing
 

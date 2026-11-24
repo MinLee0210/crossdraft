@@ -139,6 +139,29 @@ export class Sim {
   gain = 25; // plan: internal heat gain, W per m2 of floor
   ceilH = 2.7; // ceiling height in m, converts W/m2 into K/s
 
+  /** Tunable fields a resized or rebuilt Sim inherits from the old one. Add a new tunable here, next to its declaration. */
+  static readonly PARAMS = [
+    'mode',
+    'cellSize',
+    'speed',
+    'deg',
+    'mixing',
+    'swirl',
+    'heatDT',
+    'fanSpeed',
+    'iters',
+    'omega',
+    'cool',
+    'coolPlan',
+    'gain',
+    'ceilH'
+  ] as const;
+  copyParamsFrom(old: Sim): void {
+    const self = this as unknown as Record<string, unknown>,
+      src = old as unknown as Record<string, unknown>;
+    for (const k of Sim.PARAMS) self[k] = src[k];
+  }
+
   W = 0;
   H = 0;
   S = 0;

@@ -144,6 +144,16 @@ function Shell({ engine }: { engine: Engine }) {
             </svg>
           </button>
         </div>
+        {ui.saveWarn && (
+          <div className="savewarn" role="alert">
+            {ui.saveWarn}
+          </div>
+        )}
+        {ui.toast && (
+          <div className="toast" role="status">
+            {ui.toast}
+          </div>
+        )}
         <Onboard engine={engine} />
         <Side engine={engine} ui={ui} open={sideOpen} />
         {palette && <Palette engine={engine} ui={ui} onClose={() => setPalette(false)} setLang={setLang} setSide={setSideOpen} />}

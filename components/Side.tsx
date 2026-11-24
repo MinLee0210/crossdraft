@@ -9,7 +9,7 @@ import { MAX_BOARDS } from '@/lib/project';
 import { PRESETS } from '@/lib/presets';
 import { WIND_PRESETS } from '@/lib/winds';
 import { summarise } from '@/lib/sweep';
-import { useT } from './I18n';
+import { useLang, useT } from './I18n';
 import { WindRose } from './WindRose';
 
 interface Props {
@@ -19,7 +19,8 @@ interface Props {
 
 /* ------------------------------------------------------------------ wind */
 function Dial({ engine, ui }: Props) {
-  const t = useT();
+  const t = useT(),
+    lang = useLang();
   const svg = useRef<SVGSVGElement>(null);
   const down = useRef(false);
   const { speed, deg, ex, ey } = ui.wind;
@@ -66,16 +67,16 @@ function Dial({ engine, ui }: Props) {
       <circle className="ring" cx="60" cy="60" r="52" />
       <path className="tick" d="M60 8v8M60 104v8M8 60h8M104 60h8" />
       <text x="60" y="26">
-        N
+        {compass(0, lang, true)}
       </text>
       <text x="96" y="61">
-        E
+        {compass(90, lang, true)}
       </text>
       <text x="60" y="95">
-        S
+        {compass(180, lang, true)}
       </text>
       <text x="24" y="61">
-        W
+        {compass(270, lang, true)}
       </text>
       <g transform={`rotate(${(ang * 180) / Math.PI} 60 60)`} style={{ opacity: speed < 0.05 ? 0.35 : 1 }}>
         <path className="arrow" d="M60 60H92" />
@@ -87,7 +88,8 @@ function Dial({ engine, ui }: Props) {
 }
 
 function Wind({ engine, ui }: Props) {
-  const t = useT();
+  const t = useT(),
+    lang = useLang();
   const { speed, deg, ex } = ui.wind,
     sec = ui.mode === 'section';
   const matched = WIND_PRESETS.find((p) => p.speed === speed && p.deg === deg)?.id ?? '';
@@ -98,9 +100,9 @@ function Wind({ engine, ui }: Props) {
         <Dial engine={engine} ui={ui} />
         <div className="wctl">
           <div className="big mono">
-            {compass(deg)} {Math.round(deg)}&deg;
+            {compass(deg, lang)} {Math.round(deg)}&deg;
           </div>
-          <div className="muted">{speed < 0.05 ? t('wind.none') : t('wind.blowsTo', { dir: compass(deg + 180) })}</div>
+          <div className="muted">{speed < 0.05 ? t('wind.none') : t('wind.blowsTo', { dir: compass(deg + 180, lang) })}</div>
           <div className="muted">{t(beaufort(speed)) + (sec && Math.abs(ex) < 1e-3 ? t('wind.calmSection') : '')}</div>
         </div>
       </div>
@@ -237,10 +239,11 @@ function FengShui({ ui }: Pick<Props, 'ui'>) {
 const SWEEP_SECONDS = [30, 60, 120];
 
 function Sweep({ engine, ui }: Props) {
-  const t = useT();
+  const t = useT(),
+    lang = useLang();
   const res = ui.sweepResult,
     sum = res ? summarise(res.rows) : null;
-  const label = (r: { deg: number }) => `${compass(r.deg)} ${Math.round(r.deg)}°`;
+  const label = (r: { deg: number }) => `${compass(r.deg, lang)} ${Math.round(r.deg)}°`;
   const ranked = res ? [...res.rows].filter((r) => r.score).sort((a, b) => b.score!.score - a.score!.score) : [];
   return (
     <section className="blk">
@@ -332,7 +335,8 @@ function Sweep({ engine, ui }: Props) {
 
 /* ----------------------------------------------------------------- rooms */
 function Rooms({ ui }: Pick<Props, 'ui'>) {
-  const t = useT();
+  const t = useT(),
+    lang = useLang();
   const sc = ui.score;
   let chip = { text: t('chip.none'), cls: 'chip' };
   if (sc) {
@@ -381,6 +385,52 @@ function Rooms({ ui }: Pick<Props, 'ui'>) {
             ))}
           </ul>
         </div>
+      )}
+      {sc && ui.flow.rooms.length > 0 && (
+        <details className="blk">
+          <summary>{t('flow.title')}</summary>
+          <p className="hint">{t('flow.hint')}</p>
+          <div className="tablewrap">
+            <table className="m">
+              <thead>
+                <tr>
+                  <th>{t('tbl.room')}</th>
+                  <th>{t('flow.ach')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ui.flow.rooms.map((r) => (
+                  <tr key={r.id}>
+                    <td>{ui.stats.find((x) => x.id === r.id)?.name ?? r.id}</td>
+                    <td>{fmt(r.ach, 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="tablewrap">
+            <table className="m">
+              <thead>
+                <tr>
+                  <th>{t('flow.opening')}</th>
+                  <th>m</th>
+                  <th>{t('flow.in')}</th>
+                  <th>{t('flow.out')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ui.flow.openings.map((o, k) => (
+                  <tr key={k}>
+                    <td>{compass(o.facing, lang)}</td>
+                    <td>{fmt(o.width, 1)}</td>
+                    <td>{fmt(o.inflow, 2)}</td>
+                    <td>{fmt(o.outflow, 2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
       <div className="tablewrap">
         <table className="m">
@@ -447,7 +497,8 @@ function delta(m: Metric, A: TestResult, B: TestResult, t: (k: string) => string
 }
 
 function Compare({ engine, ui }: Props) {
-  const t = useT();
+  const t = useT(),
+    lang = useLang();
   const { A, B } = ui.slots,
     testing = ui.test;
   const cell = (m: Metric, r: TestResult | null) => {
@@ -455,7 +506,7 @@ function Compare({ engine, ui }: Props) {
     if (m.kind === 't90' && r.sc.worstT90 === null) return '> ' + fmt(r.T, 0) + ' s';
     return m.show(m.get(r));
   };
-  const wind = (r: TestResult | null) => (r ? `${fmt(r.wind.speed, 1)} m/s ${compass(r.wind.deg)}` : '-');
+  const wind = (r: TestResult | null) => (r ? `${fmt(r.wind.speed, 1)} m/s ${compass(r.wind.deg, lang)}` : '-');
   return (
     <section className="blk">
       <h2>{t('cmp.title')}</h2>
@@ -571,6 +622,7 @@ function BoardRow({ engine, b, last }: { engine: Engine; b: UiState['boards'][nu
       </div>
       <div className="note mono">
         {fmt(b.w, 1)} × {fmt(b.h, 1)} m · {t('boards.' + b.mode)}
+        {b.linkName && <> · {t('boards.follows', { name: b.linkName })}</>}
       </div>
       <div className="btnrow">
         <button type="button" className="btn sm" onClick={() => engine.focusBoard(b.id)}>
@@ -579,6 +631,15 @@ function BoardRow({ engine, b, last }: { engine: Engine; b: UiState['boards'][nu
         <button type="button" className="btn sm" onClick={() => engine.duplicateBoard(b.id)}>
           {t('boards.duplicate')}
         </button>
+        {b.link ? (
+          <button type="button" className="btn sm" onClick={() => engine.unlinkBoard(b.id)}>
+            {t('boards.unlink')}
+          </button>
+        ) : (
+          <button type="button" className="btn sm" onClick={() => engine.linkBoard(b.id)}>
+            {t('boards.link')}
+          </button>
+        )}
         <button type="button" className="btn sm" disabled={last} onClick={() => engine.deleteBoard(b.id)}>
           {t('boards.delete')}
         </button>

@@ -349,4 +349,216 @@ describe('boards', () => {
     expect(e.getSnapshot().zoom).toBe(1);
     expect(() => frames(e, 3)).not.toThrow();
   });
+
+  it('undoes and redoes notes, arrows and erasing them', () => {
+    const e = boot(),
+      a = e as any;
+    const note = (mx: number, my: number, text: string) => {
+      e.setTool('text');
+      const [x, y] = px(e, mx, my);
+      a.pointerDown(ev(x, y));
+      e.commitNote(text);
+      a.endDrag();
+    };
+    note(5, -1.5, 'north');
+    expect(a.world).toHaveLength(1);
+
+    // an arrow dragged in empty world
+    e.setTool('arrow');
+    const [x0, y0] = px(e, 8, -2),
+      [x1, y1] = px(e, 12, -2);
+    a.pointerDown(ev(x0, y0));
+    a.pointerMove(ev(x1, y1));
+    a.endDrag();
+    expect(a.world).toHaveLength(2);
+
+    // erase the note
+    e.setTool('erase');
+    const [nx, ny] = px(e, 5.2, -1.3);
+    a.pointerDown(ev(nx, ny));
+    a.endDrag();
+    expect(a.world).toHaveLength(1);
+
+    e.undo(); // the erased note is back
+    expect(a.world).toHaveLength(2);
+    e.undo(); // the arrow is gone
+    expect(a.world.map((w: any) => w.k)).toEqual(['text']);
+    e.undo(); // the note is gone
+    expect(a.world).toHaveLength(0);
+    expect(e.getSnapshot().canUndo).toBe(false);
+    e.redo();
+    e.redo();
+    expect(a.world.map((w: any) => w.k)).toEqual(['text', 'arrow']);
+    expect(() => frames(e, 3)).not.toThrow();
+  });
+
+  it('undoes board create, delete, move and rename in the order they happened, mixed with drawing', () => {
+    const e = boot(),
+      a = e as any;
+    const names = () => e.getSnapshot().boards.map((b) => b.name);
+    const first = e.getSnapshot().boards[0];
+    e.newBoard();
+    expect(e.getSnapshot().boards).toHaveLength(2);
+    const second = e.getSnapshot().boards[1];
+    e.renameBoard(second.id, 'East');
+    // draw a wall on the second board
+    e.setTool('wall');
+    const before = walls(e, 1);
+    const b1 = a.boards[1];
+    const [x, y] = px(e, b1.wx + 2, b1.wy + 2);
+    a.pointerDown(ev(x, y));
+    a.pointerMove(ev(x + 40, y));
+    a.endDrag();
+    expect(walls(e, 1)).toBeGreaterThan(before);
+    e.deleteBoard(first.id);
+    expect(e.getSnapshot().boards).toHaveLength(1);
+
+    e.undo(); // the deleted board returns, first in the list
+    expect(e.getSnapshot().boards.map((b) => b.id)).toEqual([first.id, second.id]);
+    e.undo(); // the wall goes
+    expect(walls(e, 1)).toBe(before);
+    e.undo(); // the name goes
+    expect(names()[1]).not.toBe('East');
+    e.undo(); // the new board goes
+    expect(e.getSnapshot().boards).toHaveLength(1);
+    expect(e.getSnapshot().canUndo).toBe(false);
+
+    e.redo();
+    e.redo();
+    e.redo();
+    e.redo();
+    expect(e.getSnapshot().boards.map((b) => b.id)).toEqual([second.id]);
+    expect(() => frames(e, 3)).not.toThrow();
+  });
+
+  it('resizes a board by dragging its edges: the drawing keeps its place', () => {
+    const e = boot(),
+      a = e as any;
+    e.setTool('select');
+    const s0 = e.sim,
+      W0 = s0.W,
+      H0 = s0.H,
+      cell = s0.cellSize,
+      w0 = walls(e);
+    const b = a.cur;
+    // grab the right edge and pull it out by 4 m
+    const [rx, ry] = px(e, b.wx + W0 * cell, b.wy + (H0 * cell) / 2);
+    const [tx] = px(e, b.wx + W0 * cell + 4, b.wy + (H0 * cell) / 2);
+    a.pointerDown(ev(rx, ry));
+    expect(a.resizeDrag).not.toBeNull();
+    a.pointerMove(ev(tx, ry));
+    a.endDrag();
+    expect(e.sim.W).toBe(W0 + Math.round(4 / cell));
+    expect(e.sim.H).toBe(H0);
+    expect(walls(e)).toBe(w0);
+    expect(a.cur.wx).toBe(b.wx);
+
+    // pull the left edge in by 2 m: the board shrinks from the left and its origin moves right
+    const wx = a.cur.wx,
+      W1 = e.sim.W;
+    const [lx, ly] = px(e, wx, a.cur.wy + (H0 * cell) / 2);
+    const [lx2] = px(e, wx + 2, a.cur.wy + (H0 * cell) / 2);
+    a.pointerDown(ev(lx, ly));
+    a.pointerMove(ev(lx2, ly));
+    a.endDrag();
+    expect(e.sim.W).toBe(W1 - Math.round(2 / cell));
+    expect(a.cur.wx).toBeCloseTo(wx + 2, 5);
+    expect(() => frames(e, 3)).not.toThrow();
+  });
+
+  it('a linked board follows its source, keeps its own wind, and cannot be drawn on', () => {
+    const e = boot(),
+      a = e as any;
+    const srcId = e.getSnapshot().boards[0].id;
+    e.linkBoard(srcId);
+    expect(e.getSnapshot().boards).toHaveLength(2);
+    const copy = e.getSnapshot().boards[1];
+    expect(copy.link).toBe(srcId);
+    expect(copy.linkName).toBe(e.getSnapshot().boards[0].name);
+    expect(walls(e, 1)).toBe(walls(e, 0));
+
+    // the copy has its own wind
+    e.setWind(5, 90);
+    const copyWind = e.getSnapshot().wind.deg;
+    e.selectBoard(srcId);
+    expect(e.getSnapshot().wind.deg).not.toBe(copyWind);
+
+    // a wall drawn on the source shows up on the copy within a frame
+    e.setTool('wall');
+    const b0 = a.boards[0];
+    const [x, y] = px(e, b0.wx + 0.5, b0.wy + 0.5);
+    const before = walls(e, 1);
+    a.pointerDown(ev(x, y));
+    a.pointerMove(ev(x + 60, y));
+    a.endDrag();
+    frames(e, 3);
+    expect(walls(e, 1)).toBe(walls(e, 0));
+    expect(walls(e, 1)).toBeGreaterThan(before);
+
+    // drawing on the copy is refused with a hint
+    e.selectBoard(copy.id);
+    const b1 = a.boards[1];
+    const [cx, cy] = px(e, b1.wx + 0.5, b1.wy + 3);
+    const w1 = walls(e, 1);
+    a.pointerDown(ev(cx, cy));
+    a.pointerMove(ev(cx + 60, cy));
+    a.endDrag();
+    expect(walls(e, 1)).toBe(w1);
+    expect(e.getSnapshot().toast).not.toBe('');
+
+    // unlinking makes it ordinary, and unlink undoes
+    e.unlinkBoard(copy.id);
+    expect(e.getSnapshot().boards[1].link).toBeNull();
+    e.undo();
+    expect(e.getSnapshot().boards[1].link).toBe(srcId);
+    e.redo();
+
+    // deleting the source leaves the copy as an ordinary board
+    e.linkBoard(srcId);
+    const third = e.getSnapshot().boards[2];
+    e.deleteBoard(srcId);
+    expect(e.getSnapshot().boards.every((b) => b.link === null || b.link !== srcId)).toBe(true);
+    e.undo();
+    expect(e.getSnapshot().boards.find((b) => b.id === third.id)!.link).toBe(srcId);
+    expect(() => frames(e, 3)).not.toThrow();
+  });
+
+  it('draws, cancels and places things from the keyboard', () => {
+    const e = boot();
+    e.setTool('wall');
+    e.kbFocus();
+    const w0 = walls(e);
+    e.kbMove(-20, -10);
+    e.kbPress(); // pen down
+    for (let i = 0; i < 6; i++) e.kbMove(3, 0);
+    e.kbPress(); // pen up
+    const w1 = walls(e);
+    expect(w1).toBeGreaterThan(w0);
+
+    e.kbMove(0, 3);
+    e.kbPress();
+    e.kbMove(10, 0);
+    e.kbCancel(); // Escape puts the cells back
+    expect(walls(e)).toBe(w1);
+
+    e.setTool('fan');
+    e.kbPress(); // a fan goes in with one press
+    expect(e.sim.fans.length).toBeGreaterThan(0);
+
+    e.setTool('select');
+    e.kbPress();
+    expect(e.getSnapshot().toast).not.toBe('');
+    e.kbBlur();
+    expect(() => frames(e, 3)).not.toThrow();
+  });
+
+  it('renames default board names when the language changes, and leaves custom names alone', () => {
+    const e = boot();
+    e.newBoard();
+    e.renameBoard(e.getSnapshot().boards[1].id, 'East wing');
+    e.setLang('vi');
+    expect(e.getSnapshot().boards.map((b) => b.name)).toEqual(['Bảng 1', 'East wing']);
+    e.setLang('en');
+    expect(e.getSnapshot().boards[0].name).toBe('Board 1');
+  });
 });

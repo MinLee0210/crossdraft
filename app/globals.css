@@ -8,7 +8,7 @@
   --muted: #5a6775;
   --line: #d0d8df;
   --line2: #e2e7ec;
-  --accent: #087a94;
+  --accent: #06728b;
   --accent-ink: #ffffff;
   --accent-soft: #d3eef4;
   --heat: #e0502a;
@@ -18,7 +18,7 @@
   --grid: rgba(24, 35, 46, 0.1);
   --good: #1b7f4b;
   --bad: #c23a3a;
-  --warn: #a96d08;
+  --warn: #9a6205;
   --dot: rgba(24, 35, 46, 0.16);
   --r-sm: 8px;
   --r-md: 12px;
@@ -1612,4 +1612,49 @@ tr.clickrow:hover td {
   padding: 48px 24px;
   max-width: 640px;
   margin-inline: auto;
+}
+
+.savewarn {
+  position: absolute;
+  left: 50%;
+  bottom: 168px;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(560px, calc(100% - 32px));
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--warn);
+  box-shadow: var(--float);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 116px;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(520px, calc(100% - 32px));
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  background: var(--ink);
+  color: var(--panel);
+  box-shadow: var(--float);
+  font-size: 13px;
+  line-height: 1.4;
 }

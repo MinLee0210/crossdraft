@@ -3,7 +3,14 @@ export const fmt = (x: number, d = 1): string => (Number.isFinite(x) ? x.toFixed
 export const pct = (x: number): string => (Number.isFinite(x) ? Math.round(x * 100) + '%' : '-');
 
 const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-export const compass = (d: number): string => COMPASS[Math.round((((d % 360) + 360) % 360) / 22.5) % 16];
+// Vietnamese names the eight main points only, and its letters differ from English (N is Nam, south).
+const COMPASS_VI = ['Bắc', 'Đông Bắc', 'Đông', 'Đông Nam', 'Nam', 'Tây Nam', 'Tây', 'Tây Bắc'];
+const COMPASS_VI_SHORT = ['B', 'ĐB', 'Đ', 'ĐN', 'N', 'TN', 'T', 'TB'];
+export const compass = (d: number, lang: 'en' | 'vi' = 'en', short = false): string => {
+  const a = ((d % 360) + 360) % 360;
+  if (lang === 'vi') return (short ? COMPASS_VI_SHORT : COMPASS_VI)[Math.round(a / 45) % 8];
+  return COMPASS[Math.round(a / 22.5) % 16];
+};
 
 /** Translation key for the Beaufort-style wind description. */
 const BEAU: [number, string][] = [
