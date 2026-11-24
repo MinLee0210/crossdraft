@@ -120,3 +120,15 @@ describe('share link', () => {
     expect(() => fromHash('#l=' + btoa('{"app":"nope"}'))).toThrow(/Crossdraft/);
   });
 });
+
+import { compass } from '../lib/format';
+describe('compass names', () => {
+  it('uses Vietnamese names, where N means Nam (south)', () => {
+    expect(compass(0)).toBe('N');
+    expect(compass(0, 'vi')).toBe('Bắc');
+    expect(compass(180, 'vi', true)).toBe('N');
+    expect(compass(45, 'vi')).toBe('Đông Bắc');
+    expect(compass(270, 'vi', true)).toBe('T');
+    expect(compass(350, 'vi')).toBe('Bắc');
+  });
+});

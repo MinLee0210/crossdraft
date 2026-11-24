@@ -90,7 +90,7 @@ export const ARTICLES: Record<Exclude<Slug, 'examples' | 'faq'>, Article> = {
     title: { en: 'Cross ventilation: how to read a floor plan for airflow', vi: 'Thông gió xuyên phòng: cách đọc mặt bằng về luồng gió' },
     description: {
       en: 'A short guide to cross ventilation in houses and apartments: why openings on opposite sides work, why one-sided rooms stay stale, and what to check in a plan.',
-      vi: 'Hướng dẫn ngắn về thông gió xuyên phòng trong nhà ở và căn hộ: vì sao các ô mở ở hai phía đối diện hiệu quả, vì sao phòng chỉ có một phía thoáng bị bí và nên kiểm tra gì trên mặt bằng.'
+      vi: 'Hướng dẫn ngắn về thông gió xuyên phòng trong nhà ở và căn hộ: vì sao các ô cửa ở hai phía đối diện hiệu quả, vì sao phòng chỉ có một phía thoáng bị bí và nên kiểm tra gì trên mặt bằng.'
     },
     sections: [
       {
@@ -101,8 +101,8 @@ export const ARTICLES: Record<Exclude<Slug, 'examples' | 'faq'>, Article> = {
             'The more direct the path and the larger the openings, the more air moves. A path that runs straight from one opening to the facing one flushes quickly but can feel draughty along that line.'
           ],
           vi: [
-            'Gió đẩy không khí vào các ô mở ở phía đón gió và hút không khí ra khỏi các ô mở ở những phía khác. Khi phòng có một ô mở ở phía đón gió và một ô mở khác ở tường đối diện hoặc tường bên, không khí có đường để đi xuyên qua: đó là thông gió xuyên phòng. Nó thay không khí tù bên trong bằng không khí bên ngoài và đưa luồng khí lướt qua người trong phòng.',
-            'Đường đi càng thẳng và ô mở càng lớn thì càng có nhiều khí di chuyển. Đường chạy thẳng từ ô mở này tới ô mở đối diện làm thoáng rất nhanh nhưng có thể gây cảm giác gió lùa dọc theo đường đó.'
+            'Gió đẩy không khí vào các ô cửa ở phía đón gió và hút không khí ra khỏi các ô cửa ở những phía khác. Khi phòng có một ô cửa ở phía đón gió và một ô cửa khác ở tường đối diện hoặc tường bên, không khí có đường để đi xuyên qua: đó là thông gió xuyên phòng. Nó thay không khí tù bên trong bằng không khí bên ngoài và đưa luồng khí lướt qua người trong phòng.',
+            'Đường đi càng thẳng và ô cửa càng lớn thì càng có nhiều khí di chuyển. Đường chạy thẳng từ ô cửa này tới ô cửa đối diện làm thoáng rất nhanh nhưng có thể gây cảm giác gió lùa dọc theo đường đó.'
           ]
         }
       },
@@ -119,9 +119,9 @@ export const ARTICLES: Record<Exclude<Slug, 'examples' | 'faq'>, Article> = {
             'Would a fan, a light well or a courtyard help? Test one change at a time and compare.'
           ],
           vi: [
-            'Mỗi phòng quan trọng có ô mở ở ít nhất hai phía khác nhau không? Phòng chỉ có ô mở trên một bức tường ít được thay khí, vì không có chênh lệch áp suất để đẩy khí qua phòng.',
-            'Các ô mở có hướng về gió chủ đạo không, và điều gì xảy ra khi gió đổi hướng? Hãy chạy chức năng quét hướng gió để biết bố cục nhạy với hướng gió đến mức nào.',
-            'Có phòng nào mà ô mở chỉ dẫn sang các phòng khác không? Không khí phải đi qua phòng bên cạnh trước, nên những phòng này dễ bị bí.',
+            'Mỗi phòng quan trọng có ô cửa ở ít nhất hai phía khác nhau không? Phòng chỉ có ô cửa trên một bức tường ít được thay khí, vì không có chênh lệch áp suất để đẩy khí qua phòng.',
+            'Các ô cửa có hướng về gió chủ đạo không, và điều gì xảy ra khi gió đổi hướng? Hãy chạy chức năng quét hướng gió để biết bố cục nhạy với hướng gió đến mức nào.',
+            'Có phòng nào mà ô cửa chỉ dẫn sang các phòng khác không? Không khí phải đi qua phòng bên cạnh trước, nên những phòng này dễ bị bí.',
             'Có hành lang dài hoặc căn phòng sâu khiến không khí phải đi xa không? Vùng lặng gió, nơi không khí gần như đứng yên, thường xuất hiện ở đầu xa.',
             'Nhà bên cạnh hoặc tường có che chắn cửa sổ không? Một khối nhà đón gió ở phía trước có thể làm giảm dòng khí rất nhiều.',
             'Quạt, giếng trời hay sân trong có giúp ích không? Hãy thử từng thay đổi một và so sánh.'
@@ -135,7 +135,7 @@ export const ARTICLES: Record<Exclude<Slug, 'examples' | 'faq'>, Article> = {
             'A plan shows how wind moves sideways through rooms. A section shows the vertical story: warm air rises, so a low opening for cool air and a high opening for warm air can move air even when the wind is calm (the stack effect). Crossdraft has both views. In the section view, heaters create buoyancy; in the plan view they only warm the air that passes by.'
           ],
           vi: [
-            'Mặt bằng cho thấy gió đi ngang qua các phòng. Mặt cắt kể câu chuyện theo chiều đứng: khí nóng bay lên, nên một ô mở thấp cho khí mát vào và một ô mở cao cho khí nóng thoát ra có thể làm không khí chuyển động ngay cả khi lặng gió (hiệu ứng ống khói). Crossdraft có cả hai chế độ xem. Ở chế độ mặt cắt, nguồn nhiệt tạo lực nổi; ở chế độ mặt bằng chúng chỉ làm ấm không khí đi ngang qua.'
+            'Mặt bằng cho thấy gió đi ngang qua các phòng. Mặt cắt kể câu chuyện theo chiều đứng: khí nóng bay lên, nên một ô cửa thấp cho khí mát vào và một ô cửa cao cho khí nóng thoát ra có thể làm không khí chuyển động ngay cả khi lặng gió (hiệu ứng ống khói). Crossdraft có cả hai chế độ xem. Ở chế độ mặt cắt, nguồn nhiệt tạo lực nổi; ở chế độ mặt bằng chúng chỉ làm ấm không khí đi ngang qua.'
           ]
         }
       }
@@ -200,7 +200,7 @@ export const ARTICLES: Record<Exclude<Slug, 'examples' | 'faq'>, Article> = {
           vi: [
             'Mô hình hai chiều. Mặt bằng không có ảnh hưởng của chiều cao trần ngoài một hệ số quy đổi nhiệt cố định; mặt cắt không có chiều sâu.',
             'Gió đồng đều trên toàn bảng. Gió thật thay đổi theo cách bố trí đường phố, độ cao và mùa, còn các hướng gió có sẵn là giá trị điển hình để giảng dạy, không phải số liệu của khu đất.',
-            'Các ô mở là khoảng hở trống. Cánh cửa sổ, lá sách, lưới chống côn trùng và cửa mở quay không được mô hình hóa.',
+            'Các ô cửa là khoảng hở trống. Cánh cửa sổ, lá sách, lưới chống côn trùng và cửa mở quay không được mô hình hóa.',
             'Lưới thô (ô 0,25 m trong mặt bằng) và độ rối được biểu diễn bằng một số hạng trộn đơn giản, nên các chi tiết nhỏ và tốc độ chính xác không đáng tin.',
             'Các ô ở góc có thể cho tốc độ cao phi thực tế. Hãy thận trọng với tốc độ đỉnh và so sánh các bố cục thay vì đọc từng giá trị riêng lẻ.',
             'Không mô hình hóa chất ô nhiễm, độ ẩm, bức xạ mặt trời, người sử dụng hay hệ thống cơ khí.'
@@ -256,9 +256,9 @@ export const ARTICLES: Record<Exclude<Slug, 'examples' | 'faq'>, Article> = {
             'Stagnant air. Crossdraft flags a room with under 35% fresh air or with more than a quarter of its area almost still.'
           ],
           vi: [
-            'Cửa chính thẳng hàng với cửa sau hoặc cửa sổ. Quan niệm truyền thống cho rằng khí vào cửa chính nên tụ lại trong nhà, không nên xuyên thẳng ra ngoài. Vật lý: các ô mở đối diện nhau là bố cục thông gió xuyên phòng tốt nhất, nên đường này làm phòng thoáng nhanh, với cái giá là có thể gió lùa. Crossdraft báo tốc độ khí dọc đường này và thời gian khí lưu lại gần lối vào.',
+            'Cửa chính thẳng hàng với cửa sau hoặc cửa sổ. Quan niệm truyền thống cho rằng khí vào cửa chính nên tụ lại trong nhà, không nên xuyên thẳng ra ngoài. Vật lý: các ô cửa đối diện nhau là bố cục thông gió xuyên phòng tốt nhất, nên đường này làm phòng thoáng nhanh, với cái giá là có thể gió lùa. Crossdraft báo tốc độ khí dọc đường này và thời gian khí lưu lại gần lối vào.',
             'Khoảng đệm lối vào. Bình phong (huyền quan), kệ hoặc chỗ rẽ ngay sau cửa. Vật lý: khoảng đệm làm luồng gió vào chậm và tỏa ra nên dịu hơn, nhưng cũng có thể làm gió sạch đi được ít xa hơn. Trong mô phỏng, bình phong ngay sau lối vào rút ngắn thời gian khí lưu lại ở đó vì nó loại bỏ các xoáy cạnh luồng gió vào.',
-            'Gió và các ô mở. Quan niệm truyền thống nói về việc chắn gió dữ và đón gió nhẹ ("tàng phong tụ khí"). Crossdraft kiểm tra những ô mở nào hướng về gió, lệch không quá 67 độ so với hướng gió thổi đến.',
+            'Gió và các ô cửa. Quan niệm truyền thống nói về việc chắn gió dữ và đón gió nhẹ ("tàng phong tụ khí"). Crossdraft kiểm tra những ô cửa nào hướng về gió, lệch không quá 67 độ so với hướng gió thổi đến.',
             'Không khí tù đọng. Crossdraft đánh dấu phòng có dưới 35% không khí sạch hoặc có hơn một phần tư diện tích gần như lặng gió.'
           ]
         }
@@ -304,7 +304,7 @@ export const FAQS: Faq[] = [
     q: { en: 'How do I compare two designs?', vi: 'Làm sao so sánh hai phương án?' },
     a: {
       en: 'Press Test → A on the first design, change the drawing, then press Test → B. Both tests start from still, stale air and run for the same length, so the table shows a fair side-by-side comparison. You can also duplicate a board and edit the copy.',
-      vi: 'Nhấn Test → A với phương án đầu, sửa bản vẽ, rồi nhấn Test → B. Cả hai bài thử đều bắt đầu từ không khí tù, đứng yên và chạy cùng độ dài, nên bảng cho một so sánh công bằng. Bạn cũng có thể nhân bản một bảng rồi sửa bản sao.'
+      vi: 'Nhấn Thử → A với phương án đầu, sửa bản vẽ, rồi nhấn Thử → B. Cả hai bài thử đều bắt đầu từ không khí tù, đứng yên và chạy cùng độ dài, nên bảng cho một so sánh công bằng. Bạn cũng có thể nhân bản một bảng rồi sửa bản sao.'
     }
   },
   {

@@ -2,7 +2,7 @@
 
 import type { SweepRow } from '@/lib/sweep';
 import { compass } from '@/lib/format';
-import { useT } from './I18n';
+import { useLang, useT } from './I18n';
 
 const C = 110,
   R0 = 18,
@@ -24,7 +24,8 @@ function wedge(deg: number, half: number, r: number): string {
 
 /** Wind rose of scores: each wedge points to where the wind comes FROM, and is longer when the layout scores better. */
 export function WindRose({ rows, onPick }: { rows: SweepRow[]; onPick: (deg: number) => void }) {
-  const t = useT();
+  const t = useT(),
+    lang = useLang();
   const scored = rows.filter((r) => r.score);
   const best = scored.reduce<SweepRow | null>((a, r) => (!a || r.score!.score > a.score!.score ? r : a), null);
   const worst = scored.reduce<SweepRow | null>((a, r) => (!a || r.score!.score < a.score!.score ? r : a), null);
@@ -43,11 +44,11 @@ export function WindRose({ rows, onPick }: { rows: SweepRow[]; onPick: (deg: num
         return (
           <g key={r.deg} onClick={() => onPick(r.deg)} style={{ cursor: 'pointer' }}>
             <path className={cls} d={wedge(r.deg, half, rad)} style={{ fillOpacity: 0.3 + 0.7 * (v / 100) }}>
-              <title>{`${compass(r.deg)} ${Math.round(r.deg)}°: ${v}`}</title>
+              <title>{`${compass(r.deg, lang)} ${Math.round(r.deg)}°: ${v}`}</title>
             </path>
             {Number.isInteger(r.deg / 45) && (
               <text className="rl" x={lx} y={ly}>
-                {compass(r.deg)}
+                {compass(r.deg, lang, true)}
               </text>
             )}
           </g>

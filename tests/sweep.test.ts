@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { serialize, deserialize, type Layout } from '../lib/layout';
 import { T_OPEN, T_WALL } from '../lib/sim';
 import { summarise, Sweep } from '../lib/sweep';
+import { createSweep } from '../lib/sweepRunner';
 
 // A 40 x 24 room with windows on the west and east walls only, on a small grid so the sweep stays fast.
 function layout(): Layout {
@@ -65,5 +66,19 @@ describe('wind sweep', () => {
 
   it('summarise ignores rows without a score', () => {
     expect(summarise([{ deg: 0, score: null }])).toBeNull();
+  });
+
+  it('runs an explicit list of directions, as a worker does for one', () => {
+    const sw = new Sweep(layout(), phys, 3, 20, [90]);
+    let guard = 0;
+    while (!sw.advance(50) && guard++ < 10000);
+    expect(sw.results.map((r) => r.deg)).toEqual([90]);
+  });
+
+  it('falls back to the in-thread sweep where Web Workers do not exist', () => {
+    expect(typeof Worker).toBe('undefined');
+    const job = createSweep(layout(), phys, 3, 10, 8, 0.1);
+    expect(job).toBeInstanceOf(Sweep);
+    expect(job.dirs).toHaveLength(8);
   });
 });

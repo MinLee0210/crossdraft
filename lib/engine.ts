@@ -5,13 +5,18 @@ import { decodeCell, deserialize, encodeCell, GRID_MAX, GRID_MIN, serialize, typ
 import { evaluateFengShui, type FsResult } from './fengshui';
 import { GifEncoder, medianCut, Quantizer } from './gif';
 import { detectAlignments, type Alignment } from './phongthuy';
-import { Sweep, type SweepRow } from './sweep';
+import { type SweepJob, type SweepRow } from './sweep';
+import { createSweep } from './sweepRunner';
 import { clampCell, inb, isShape, line4, put, shapeCells, stamp, type Pt, type Shape, type Tool } from './edit';
 import { DEFAULT_PLAN_PRESET, PRESETS } from './presets';
 import { hitItem, TEXT_MAX, TEXT_SIZE_M, COORD_MAX, type WorldItem } from './world';
 import { deserializeProject, fromProjectHash, MAX_BOARDS, NAME_MAX, PROJECT_VERSION, serializeProject, toProjectHash, type Project } from './project';
+import { hasDrawing, projectIsDrawn, readLegacyV2, readProjectCode, saveProjectCode } from './storage';
+import { flowThrough, type FlowResult } from './flow';
 import { Sim, T_DOOR, T_FAN, T_HEAT, T_OPEN, T_SCREEN, T_WALL, type Mode, type RoomStat, type Score } from './sim';
 import { MODES, TOOLS, type View } from './tools';
+import { drawLegend, render } from './render';
+import { captureGif, exportPng, GIF_SEC, recordGif, type GifRec } from './export';
 
 /* ------------------------------------------------------------------ types */
 export interface TestResult {
@@ -41,7 +46,7 @@ export interface UiState {
   zoom: number;
   /** Where the note being typed sits, in CSS px from the canvas's top-left, and its current text. */
   noteEdit: { id: number; left: number; top: number; text: string } | null;
-  boards: { id: number; name: string; w: number; h: number; mode: Mode; active: boolean; link: number | null }[];
+  boards: { id: number; name: string; w: number; h: number; mode: Mode; active: boolean; link: number | null; linkName: string | null }[];
   canUndo: boolean;
   canRedo: boolean;
   W: number;
@@ -57,12 +62,15 @@ export interface UiState {
   slots: { A: TestResult | null; B: TestResult | null };
   cmpMsg: string;
   codeMsg: string;
+  saveWarn: string;
+  toast: string;
   codeText: string;
   shareMsg: string;
   status: string;
   legend: { min: string; max: string };
   lang: Lang;
   phongThuy: boolean;
+  flow: FlowResult;
   insights: Insight[];
   alignments: Alignment[];
   fengShui: FsResult | null;
@@ -77,23 +85,6 @@ export interface UiState {
   rev: number;
 }
 type Slot = 'A' | 'B';
-
-const GIF_SEC = 5,
-  GIF_FRAME_MS = 80,
-  GIF_MAX_W = 640;
-interface GifRec {
-  cv: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
-  w: number;
-  h: number;
-  q: Quantizer | null;
-  frames: Uint8Array[];
-  delays: number[];
-  start: number;
-  last: number;
-  wasRunning: boolean;
-  encoding: boolean;
-}
 
 /* ---------------------------------------------------------------- colours */
 const RAMPS = {
@@ -126,8 +117,21 @@ function ramp(stops: readonly string[]): Uint8ClampedArray {
   }
   return out;
 }
-const MONO = "'JetBrains Mono',ui-monospace,Menlo,monospace";
-const KEY = 'crossdraft.v2';
+
+/** An undo step: the cells of the bound board, or the notes and arrows around the boards. */
+type Hist = Uint8Array | { world: WorldItem[] };
+/** A step on the project-level undo stack: board create, delete, move and rename. `seq` orders it against cell and note edits. */
+interface Op {
+  seq: number;
+  undo(): void;
+  redo(): void;
+}
+const sameBytes = (a: Uint8Array, b: Uint8Array): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+};
+const cloneWorld = (w: WorldItem[]): WorldItem[] => w.map((i) => ({ ...i }));
 
 /** One board on the canvas: its own solver, undo history, saved other-mode layout and field bitmap. The engine's `sim`, `hist`, ... fields are the active board's, bound by bind(). */
 interface Board {
@@ -137,8 +141,8 @@ interface Board {
   wy: number;
   link?: number;
   sim: Sim;
-  hist: Uint8Array[];
-  redo: Uint8Array[];
+  hist: Hist[];
+  redo: Hist[];
   saved: { plan: Layout | null; section: Layout | null };
   fc: HTMLCanvasElement | null;
   fctx: CanvasRenderingContext2D | null;
@@ -171,85 +175,111 @@ interface Drag {
 /** Owns the solver, the editing state, the canvas renderer and the animation loop. React reads `getSnapshot()`. */
 const ZOOM_MIN = 0.25,
   ZOOM_MAX = 6;
-const KEY3 = 'crossdraft.v3';
 
 export class Engine {
   sim = new Sim(120, 80);
-  private boards: Board[] = [];
-  private cur!: Board;
+  boards: Board[] = [];
+  cur!: Board;
   private boardSeq = 1;
   private idleTick = 0;
-  private boardDrag: { x: number; y: number; x2: number; y2: number } | null = null;
-  private moveDrag: { id: number; px: number; py: number; wx: number; wy: number } | null = null;
+  boardDrag: { x: number; y: number; x2: number; y2: number } | null = null;
+  /** A board being resized by its edges: the pointer's start, the preview rectangle in metres and the new size in cells (`gl`, `gt`: cells added on the left and top). */
+  resizeDrag: {
+    l: boolean;
+    r: boolean;
+    t: boolean;
+    b: boolean;
+    sx: number;
+    sy: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    W: number;
+    H: number;
+    gl: number;
+    gt: number;
+  } | null = null;
+  moveDrag: { id: number; px: number; py: number; wx: number; wy: number } | null = null;
 
   // editing state
-  private tool: Tool = 'wall';
-  private brush = { wall: 1, open: 2, erase: 2 };
-  private fanDir = 0;
-  private running = true;
-  private view: View = 'temp';
-  private particlesOn = true;
-  private arrowsOn = true;
-  private deadOn = true;
-  private labelsOn = true;
-  private deadThr = 0.1;
+  tool: Tool = 'wall';
+  brush = { wall: 1, open: 2, erase: 2 };
+  fanDir = 0;
+  running = true;
+  view: View = 'temp';
+  particlesOn = true;
+  arrowsOn = true;
+  deadOn = true;
+  labelsOn = true;
+  deadThr = 0.1;
   private simSpeed = 3;
   private testT = 120;
-  private test: { slot: Slot; T: number; wasRunning: boolean } | null = null;
+  test: { slot: Slot; T: number; wasRunning: boolean } | null = null;
   private slots: { A: TestResult | null; B: TestResult | null } = { A: null, B: null };
-  private hist: Uint8Array[] = [];
-  private redoStack: Uint8Array[] = [];
-  private drag: Drag | null = null;
+  private hist: Hist[] = [];
+  /** Cell cursor for keyboard drawing; null when the canvas is not focused. */
+  private kb: Pt | null = null;
+  private seq = 0;
+  private stamp = new WeakMap<object, number>();
+  private ops: Op[] = [];
+  private opsRedo: Op[] = [];
+  private toast = '';
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+  private redoStack: Hist[] = [];
+  drag: Drag | null = null;
   private pre: Uint8Array | null = null;
-  private hover: Pt | null = null;
-  private stats: RoomStat[] = [];
+  hover: Pt | null = null;
+  stats: RoomStat[] = [];
   private saved: { plan: Layout | null; section: Layout | null } = { plan: null, section: null };
   private cmpMsg = '';
   private codeMsg = '';
+  private saveWarn = '';
   private codeText = '';
   private shareMsg = '';
   private shareTimer: ReturnType<typeof setTimeout> | undefined;
-  private lang: Lang = 'en';
-  private phongThuy = false;
+  lang: Lang = 'en';
+  phongThuy = false;
   private insightList: Insight[] = [];
-  private aligns: Alignment[] = [];
+  private flow: FlowResult = { openings: [], rooms: [] };
+  aligns: Alignment[] = [];
   private fengShui: FsResult | null = null;
   private sweepCount: 8 | 16 = 8;
   private sweepSec = 60;
   private sweepMsg = '';
-  private sweepRun: { sweep: Sweep; wasRunning: boolean } | null = null;
+  sweepRun: { sweep: SweepJob; wasRunning: boolean } | null = null;
   private sweepResult: { rows: SweepRow[]; speed: number; seconds: number } | null = null;
-  private rec: GifRec | null = null;
-  private gifMsg = '';
-  private gifTimer: ReturnType<typeof setTimeout> | undefined;
+  rec: GifRec | null = null;
+  gifMsg = '';
+  gifTimer: ReturnType<typeof setTimeout> | undefined;
 
   // rendering
-  private cv: HTMLCanvasElement | null = null;
-  private ctx: CanvasRenderingContext2D | null = null;
+  cv: HTMLCanvasElement | null = null;
+  ctx: CanvasRenderingContext2D | null = null;
   private wrap: HTMLElement | null = null;
-  private lg: HTMLCanvasElement | null = null;
-  private fc: HTMLCanvasElement | null = null;
-  private fctx: CanvasRenderingContext2D | null = null;
-  private img: ImageData | null = null;
-  private DPR = 1;
-  private P = 7;
+  lg: HTMLCanvasElement | null = null;
+  fc: HTMLCanvasElement | null = null;
+  fctx: CanvasRenderingContext2D | null = null;
+  img: ImageData | null = null;
+  DPR = 1;
+  P = 7;
   // view: pm = baseS * zoom canvas pixels per metre; P = pm * cellSize pixels per cell of the bound board; off* is where the world origin sits in canvas pixels. `moved` stops resizes from re-centring.
   private baseS = 10;
-  private pm = 10;
+  pm = 10;
   private zoom = 1;
-  private offX = 0;
-  private offY = 0;
+  offX = 0;
+  offY = 0;
   private moved = false;
   private insets = { top: 150, right: 16, bottom: 100, left: 16 };
-  private world: WorldItem[] = [];
-  private editing = -1;
+  world: WorldItem[] = [];
+  editing = -1;
   private noteSeq = 0;
-  private arrowDrag: { x: number; y: number; x2: number; y2: number } | null = null;
+  arrowDrag: { x: number; y: number; x2: number; y2: number } | null = null;
   private pan: { x: number; y: number; ox: number; oy: number } | null = null;
-  private C: Record<string, string> = {};
-  private LUT: Record<string, Uint8ClampedArray> = {};
-  private hatchPat: CanvasPattern | null = null;
-  private dotPat: CanvasPattern | null = null;
+  C: Record<string, string> = {};
+  LUT: Record<string, Uint8ClampedArray> = {};
+  hatchPat: CanvasPattern | null = null;
+  dotPat: CanvasPattern | null = null;
   private cleanup: (() => void)[] = [];
   private raf = 0;
   private lastPanel = 0;
@@ -261,11 +291,11 @@ export class Engine {
   private booted = false;
 
   // particles
-  private PN = 0;
-  private ppx = new Float32Array(0);
-  private ppy = new Float32Array(0);
-  private pvx = new Float32Array(0);
-  private pvy = new Float32Array(0);
+  PN = 0;
+  ppx = new Float32Array(0);
+  ppy = new Float32Array(0);
+  pvx = new Float32Array(0);
+  pvy = new Float32Array(0);
   private plife = new Float32Array(0);
 
   // react bridge
@@ -290,7 +320,7 @@ export class Engine {
     };
   };
   getSnapshot = (): UiState => this.ui;
-  private emit(): void {
+  emit(): void {
     this.ui = this.buildUi();
     for (const l of this.listeners) l();
   }
@@ -316,10 +346,19 @@ export class Engine {
       noteEdit: this.noteEditUi(),
       boards: this.boards.map((b) => {
         const bs = this.simOf(b);
-        return { id: b.id, name: b.name, w: bs.W * bs.cellSize, h: bs.H * bs.cellSize, mode: bs.mode, active: b === this.cur, link: b.link ?? null };
+        return {
+          id: b.id,
+          name: b.name,
+          w: bs.W * bs.cellSize,
+          h: bs.H * bs.cellSize,
+          mode: bs.mode,
+          active: b === this.cur,
+          link: b.link ?? null,
+          linkName: this.boards.find((q) => q.id === b.link)?.name ?? null
+        };
       }),
-      canUndo: this.hist.length > 0,
-      canRedo: this.redoStack.length > 0,
+      canUndo: this.hist.length > 0 || this.ops.length > 0,
+      canRedo: this.redoStack.length > 0 || this.opsRedo.length > 0,
       W: s.W,
       H: s.H,
       cellSize: s.cellSize,
@@ -333,10 +372,13 @@ export class Engine {
       slots: this.slots,
       cmpMsg: this.cmpMsg,
       codeMsg: this.codeMsg,
+      saveWarn: this.saveWarn,
+      toast: this.toast,
       codeText: this.codeText,
       shareMsg: this.shareMsg,
       lang: this.lang,
       phongThuy: this.phongThuy,
+      flow: this.flow,
       insights: this.insightList,
       alignments: this.aligns,
       fengShui: this.fengShui,
@@ -360,7 +402,77 @@ export class Engine {
     };
   }
 
-  private t = (key: string, vars?: Record<string, string | number>): string => translate(this.lang, key, vars);
+  t = (key: string, vars?: Record<string, string | number>): string => translate(this.lang, key, vars);
+
+  /* ------------------------------------------------------------ keyboard drawing */
+  private kbEvent(c: Pt): PointerEvent {
+    const s = this.sim,
+      r = this.cv!.getBoundingClientRect(),
+      k = this.cv!.width / r.width;
+    return {
+      clientX: r.left + (this.offX + (this.cur.wx + (c.x + 0.5) * s.cellSize) * this.pm) / k,
+      clientY: r.top + (this.offY + (this.cur.wy + (c.y + 0.5) * s.cellSize) * this.pm) / k,
+      button: 0,
+      pointerType: 'keyboard',
+      pointerId: -1,
+      shiftKey: false,
+      preventDefault() {}
+    } as unknown as PointerEvent;
+  }
+  /** Canvas gained focus: park the cursor in the middle of the selected board. */
+  kbFocus = (): void => {
+    const s = this.sim;
+    this.kb = this.kb ?? { x: s.W >> 1, y: s.H >> 1 };
+    this.hover = this.kb;
+    this.emit();
+  };
+  kbBlur = (): void => {
+    if (this.drag) this.kbCancel();
+    this.kb = null;
+    this.hover = null;
+    this.emit();
+  };
+  /** Moves the cell cursor; a stroke that is in progress follows it. */
+  kbMove = (dx: number, dy: number): void => {
+    if (!this.cv) return;
+    const s = this.sim,
+      c = this.kb ?? { x: s.W >> 1, y: s.H >> 1 };
+    this.kb = { x: clamp(c.x + dx, 0, s.W - 1), y: clamp(c.y + dy, 0, s.H - 1) };
+    this.hover = this.kb;
+    if (this.drag) this.pointerMove(this.kbEvent(this.kb));
+    this.emit();
+  };
+  /** Enter: start a stroke at the cursor, or finish the one in progress. Tools that act on a single cell finish at once. */
+  kbPress = (): void => {
+    if (!this.cv) return;
+    if (this.drag) {
+      this.endDrag();
+      return;
+    }
+    if (this.tool === 'select' || this.tool === 'text' || this.tool === 'arrow' || this.tool === 'board') {
+      this.showToast(this.t('kb.needTool'));
+      return;
+    }
+    const s = this.sim,
+      c = this.kb ?? { x: s.W >> 1, y: s.H >> 1 };
+    this.kb = c;
+    this.hover = c;
+    this.pointerDown(this.kbEvent(c));
+    if (this.drag && ['fan', 'heat', 'screen'].includes(this.tool)) this.endDrag();
+    this.emit();
+  };
+  /** Escape: drop the stroke in progress and put the cells back as they were. */
+  kbCancel = (): void => {
+    if (!this.drag) return;
+    const pre = this.pre;
+    this.drag = null;
+    this.pre = null;
+    if (pre) {
+      this.setTypes(pre);
+      this.afterEdit();
+    }
+    this.emit();
+  };
 
   /* ------------------------------------------------------------ boards */
   private shell(id: number, name: string, wx: number, wy: number, sim: Sim): Board {
@@ -429,7 +541,7 @@ export class Engine {
     }
   }
   /** Runs fn with `b` bound, then restores the active board. */
-  private withBoard<T>(b: Board, fn: () => T): T {
+  withBoard<T>(b: Board, fn: () => T): T {
     const keep = this.cur;
     this.useBoard(b);
     try {
@@ -533,7 +645,10 @@ export class Engine {
       this.booted = true;
       if (!this.loadFromHash() && !this.restore()) this.loadPreset(DEFAULT_PLAN_PRESET, true);
       this.prewarm();
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.running = false;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        this.running = false;
+        this.particlesOn = false;
+      }
     }
     this.resizeCanvas();
     this.updatePanels();
@@ -741,10 +856,10 @@ export class Engine {
     }
     return { x0: x0 - 1.2, y0: y0 - 2, x1: x1 + 1.2, y1: y1 + 1.2 };
   }
-  private ox(): number {
+  ox(): number {
     return this.offX + this.cur.wx * this.pm;
   }
-  private oy(): number {
+  oy(): number {
     return this.offY + this.cur.wy * this.pm;
   }
   private setScale(): void {
@@ -806,29 +921,13 @@ export class Engine {
     this.offY = i.top * D + (ah - (bx.y1 - bx.y0) * this.pm) / 2 - bx.y0 * this.pm;
     this.emit();
   };
-  private replaceSim(W: number, H: number, keepLayout: boolean): void {
+  private replaceSim(W: number, H: number, keepLayout: boolean, shiftX?: number, shiftY?: number): void {
     const old = this.sim,
       ns = new Sim(W, H);
-    for (const k of [
-      'mode',
-      'cellSize',
-      'speed',
-      'deg',
-      'mixing',
-      'swirl',
-      'heatDT',
-      'fanSpeed',
-      'iters',
-      'omega',
-      'cool',
-      'coolPlan',
-      'gain',
-      'ceilH'
-    ] as const)
-      (ns as any)[k] = old[k];
+    ns.copyParamsFrom(old);
     if (keepLayout) {
-      const ox = Math.floor((W - old.W) / 2),
-        oy = Math.floor((H - old.H) / 2);
+      const ox = shiftX ?? Math.floor((W - old.W) / 2),
+        oy = shiftY ?? Math.floor((H - old.H) / 2);
       for (let y = 0; y < old.H; y++)
         for (let x = 0; x < old.W; x++) {
           const nx = x + ox,
@@ -913,22 +1012,68 @@ export class Engine {
   }
 
   /* ---------------------------------------------------------------- history */
-  private pushHist(a: Uint8Array): void {
+  private pushHist(a: Hist): void {
+    this.stamp.set(a, ++this.seq);
     this.hist.push(a);
     if (this.hist.length > 60) this.hist.shift();
     this.redoStack.length = 0;
+    this.opsRedo.length = 0;
   }
+  /** Records a board-level step. `undo` and `redo` must be exact opposites and must not record steps themselves. */
+  private pushOp(undo: () => void, redo: () => void): void {
+    this.ops.push({ seq: ++this.seq, undo, redo });
+    if (this.ops.length > 60) this.ops.shift();
+    this.opsRedo.length = 0;
+    this.redoStack.length = 0;
+  }
+  /** Puts back the state an undo step holds and returns the state it replaced, so the opposite stack can restore it. */
+  private swapHist(h: Hist): Hist {
+    let cur: Hist;
+    if (h instanceof Uint8Array) {
+      cur = this.types();
+      this.setTypes(h);
+      this.afterEdit();
+    } else {
+      cur = { world: cloneWorld(this.world) };
+      this.world = cloneWorld(h.world);
+      this.editing = -1;
+      this.worldChanged();
+    }
+    this.stamp.set(cur, ++this.seq);
+    return cur;
+  }
+  /** Records the notes and arrows as they were before an edit to them. */
+  private pushWorldHist(before: WorldItem[]): void {
+    this.pushHist({ world: before });
+  }
+  private stampOf = (x: object | undefined): number => (x ? (this.stamp.get(x) ?? ('seq' in x ? (x as Op).seq : 0)) : -1);
   undo = (): void => {
-    if (!this.hist.length) return;
-    this.redoStack.push(this.types());
-    this.setTypes(this.hist.pop()!);
-    this.afterEdit();
+    if (this.test || this.sweepRun) return;
+    const h = this.hist[this.hist.length - 1],
+      o = this.ops[this.ops.length - 1];
+    if (o && this.stampOf(o) > this.stampOf(h)) {
+      this.ops.pop();
+      o.undo();
+      this.opsRedo.push({ ...o, seq: ++this.seq });
+    } else if (h) {
+      this.hist.pop();
+      this.redoStack.push(this.swapHist(h));
+    }
+    this.emit();
   };
   redo = (): void => {
-    if (!this.redoStack.length) return;
-    this.hist.push(this.types());
-    this.setTypes(this.redoStack.pop()!);
-    this.afterEdit();
+    if (this.test || this.sweepRun) return;
+    const h = this.redoStack[this.redoStack.length - 1],
+      o = this.opsRedo[this.opsRedo.length - 1];
+    if (o && this.stampOf(o) > this.stampOf(h)) {
+      this.opsRedo.pop();
+      o.redo();
+      this.ops.push({ ...o, seq: ++this.seq });
+    } else if (h) {
+      this.redoStack.pop();
+      this.hist.push(this.swapHist(h));
+    }
+    this.emit();
   };
   private afterEdit(): void {
     this.dropSweep();
@@ -979,6 +1124,51 @@ export class Engine {
     for (let i = this.boards.length - 1; i >= 0; i--) if (this.boards[i] !== this.cur && inside(this.boards[i])) return this.boards[i];
     return null;
   }
+  /** Which edges of the selected plan board lie under a world point (within a few pixels), or null. */
+  private edgeAt(w: { x: number; y: number }): { l: boolean; r: boolean; t: boolean; b: boolean } | null {
+    const s = this.sim;
+    if (s.mode !== 'plan' || this.cur.link) return null;
+    const tol = (9 * this.DPR) / this.pm,
+      x0 = this.cur.wx,
+      y0 = this.cur.wy,
+      x1 = x0 + s.W * s.cellSize,
+      y1 = y0 + s.H * s.cellSize;
+    if (w.x < x0 - tol || w.x > x1 + tol || w.y < y0 - tol || w.y > y1 + tol) return null;
+    const l = Math.abs(w.x - x0) <= tol,
+      r = Math.abs(w.x - x1) <= tol,
+      t = Math.abs(w.y - y0) <= tol,
+      b = Math.abs(w.y - y1) <= tol;
+    return l || r || t || b ? { l, r, t, b } : null;
+  }
+  private resizeTo(w: { x: number; y: number }): void {
+    const rd = this.resizeDrag!,
+      s = this.sim,
+      cell = s.cellSize,
+      dx = (w.x - rd.sx) / cell,
+      dy = (w.y - rd.sy) / cell;
+    let W = s.W,
+      H = s.H,
+      gl = 0,
+      gt = 0;
+    if (rd.r) W = clamp(Math.round(s.W + dx), GRID_MIN.W, GRID_MAX.W);
+    if (rd.l) {
+      W = clamp(Math.round(s.W - dx), GRID_MIN.W, GRID_MAX.W);
+      gl = W - s.W;
+    }
+    if (rd.b) H = clamp(Math.round(s.H + dy), GRID_MIN.H, GRID_MAX.H);
+    if (rd.t) {
+      H = clamp(Math.round(s.H - dy), GRID_MIN.H, GRID_MAX.H);
+      gt = H - s.H;
+    }
+    Object.assign(rd, { W, H, gl, gt, x: this.cur.wx - gl * cell, y: this.cur.wy - gt * cell, w: W * cell, h: H * cell });
+  }
+  private cursorFor(w: { x: number; y: number }): string {
+    const eg = this.tool === 'select' ? this.edgeAt(w) : null;
+    if (!eg) return this.tool === 'select' ? 'default' : 'crosshair';
+    if ((eg.l && eg.t) || (eg.r && eg.b)) return 'nwse-resize';
+    if ((eg.r && eg.t) || (eg.l && eg.b)) return 'nesw-resize';
+    return eg.l || eg.r ? 'ew-resize' : 'ns-resize';
+  }
   /** Board creation by dragging a rectangle, and moving a board by its title strip. Returns true when the press was handled. */
   private boardDown(e: PointerEvent, tool: Tool): boolean {
     const w = this.worldAt(e);
@@ -993,6 +1183,29 @@ export class Engine {
       return true;
     }
     if (tool === 'select') {
+      const eg = this.edgeAt(w);
+      if (eg) {
+        try {
+          this.cv!.setPointerCapture(e.pointerId);
+        } catch {
+          /* not capturable */
+        }
+        this.resizeDrag = {
+          ...eg,
+          sx: w.x,
+          sy: w.y,
+          x: this.cur.wx,
+          y: this.cur.wy,
+          w: this.sim.W * this.sim.cellSize,
+          h: this.sim.H * this.sim.cellSize,
+          W: this.sim.W,
+          H: this.sim.H,
+          gl: 0,
+          gt: 0
+        };
+        e.preventDefault();
+        return true;
+      }
       // drag a board by any part of it
       const hit = this.boardAt(w);
       if (hit && (hit === this.cur || this.activate(hit))) {
@@ -1033,6 +1246,7 @@ export class Engine {
       tol = (8 * this.DPR) / this.pm,
       hit = hitItem(this.world, w.x, w.y, tol);
     if (tool === 'erase' && hit >= 0) {
+      this.pushWorldHist(cloneWorld(this.world));
       this.world.splice(hit, 1);
       this.worldChanged();
       e.preventDefault();
@@ -1075,9 +1289,14 @@ export class Engine {
   commitNote = (text: string): void => {
     const it = this.world[this.editing];
     if (!it || it.k !== 'text') return;
-    const v = text.trim().slice(0, TEXT_MAX);
+    const v = text.trim().slice(0, TEXT_MAX),
+      before = cloneWorld(this.world);
+    if (!it.text) before.splice(this.editing, 1); // a new note: undo removes it
     if (!v) this.world.splice(this.editing, 1);
-    else it.text = v;
+    else if (v !== it.text) {
+      this.pushWorldHist(before);
+      it.text = v;
+    }
     this.editing = -1;
     this.worldChanged();
   };
@@ -1122,6 +1341,11 @@ export class Engine {
       this.cv!.setPointerCapture(e.pointerId);
     } catch {
       /* not capturable */
+    }
+    if (this.cur.link) {
+      this.lockedHint();
+      e.preventDefault();
+      return;
     }
     const c = this.cellAt(e);
     this.pre = this.types();
@@ -1170,6 +1394,13 @@ export class Engine {
     this.afterEdit();
   }
   private pointerMove(e: PointerEvent): void {
+    if (this.resizeDrag) {
+      this.resizeTo(this.worldAt(e));
+      this.emit();
+      return;
+    }
+    if (this.cv && !this.drag && !this.moveDrag && !this.boardDrag && !this.pan && e.pointerType === 'mouse')
+      this.cv.style.cursor = this.cursorFor(this.worldAt(e));
     if (this.boardDrag) {
       const w = this.worldAt(e);
       this.boardDrag.x2 = snap(w.x);
@@ -1234,6 +1465,12 @@ export class Engine {
       this.pan = null;
       return;
     }
+    if (this.resizeDrag) {
+      const rd = this.resizeDrag;
+      this.resizeDrag = null;
+      this.resizeBoard(rd);
+      return;
+    }
     if (this.boardDrag) {
       const r = this.boardDrag;
       this.boardDrag = null;
@@ -1246,7 +1483,23 @@ export class Engine {
       return;
     }
     if (this.moveDrag) {
+      const m = this.moveDrag,
+        b = this.boards.find((q) => q.id === m.id);
       this.moveDrag = null;
+      if (b && (b.wx !== m.wx || b.wy !== m.wy)) {
+        const from = { x: m.wx, y: m.wy },
+          to = { x: b.wx, y: b.wy },
+          put = (p: { x: number; y: number }) => {
+            b.wx = p.x;
+            b.wy = p.y;
+            this.persist();
+            this.emit();
+          };
+        this.pushOp(
+          () => put(from),
+          () => put(to)
+        );
+      }
       this.persist();
       this.emit();
       return;
@@ -1255,6 +1508,7 @@ export class Engine {
       const a = this.arrowDrag;
       this.arrowDrag = null;
       if (Math.hypot(a.x2 - a.x, a.y2 - a.y) > 0.4) {
+        this.pushWorldHist(cloneWorld(this.world));
         this.world.push({ k: 'arrow', x: r2(a.x), y: r2(a.y), x2: r2(a.x2), y2: r2(a.y2) });
         this.worldChanged();
       } else this.emit();
@@ -1319,6 +1573,7 @@ export class Engine {
     this.updatePanels();
   };
   clear = (): void => {
+    if (this.cur.link) return void this.lockedHint();
     this.pushHist(this.types());
     this.sim.cell.fill(0);
     this.sim.fdir.fill(0);
@@ -1358,6 +1613,7 @@ export class Engine {
   /** Forget sweep results, and stop a sweep in progress, once the drawing they describe has changed. */
   private dropSweep(): void {
     if (this.sweepRun) {
+      this.sweepRun.sweep.dispose();
       this.running = this.sweepRun.wasRunning;
       this.sweepRun = null;
     }
@@ -1380,7 +1636,7 @@ export class Engine {
       return;
     }
     this.sweepRun = {
-      sweep: new Sweep(
+      sweep: createSweep(
         this.capture(),
         { mixing: s.mixing, swirl: s.swirl, fanSpeed: s.fanSpeed, heatDT: s.heatDT, gain: s.gain, ceilH: s.ceilH },
         s.speed,
@@ -1396,6 +1652,7 @@ export class Engine {
   };
   cancelSweep = (): void => {
     if (!this.sweepRun) return;
+    this.sweepRun.sweep.dispose();
     this.running = this.sweepRun.wasRunning;
     this.sweepRun = null;
     this.emit();
@@ -1404,6 +1661,7 @@ export class Engine {
     const r = this.sweepRun!;
     if (r.sweep.advance(14)) {
       this.sweepResult = { rows: r.sweep.results, speed: r.sweep.speed, seconds: r.sweep.seconds };
+      r.sweep.dispose();
       this.running = r.wasRunning;
       this.sweepRun = null;
       this.updatePanels();
@@ -1411,6 +1669,12 @@ export class Engine {
   }
   setLang = (l: Lang): void => {
     this.lang = l;
+    // Boards still carrying a default name follow the language ("Board 2" becomes "Bảng 2").
+    for (const b of this.boards) {
+      const m = /^(?:Board|Bảng) (\d+)$/.exec(b.name);
+      if (m) b.name = this.t('board.defaultName', { n: m[1] });
+    }
+    this.persist();
     this.updatePanels();
   };
   setPhongThuy = (on: boolean): void => {
@@ -1494,21 +1758,87 @@ export class Engine {
     this.addBoard(snap(right + BOARD_GAP_M), this.boards[0].wy, bs.W * bs.cellSize, bs.H * bs.cellSize);
   };
   /** Copies a board (its drawing, wind and both modes) next to the original. The copy is independent; `link` is reserved for linked copies. */
-  duplicateBoard = (id: number = this.cur.id): void => {
+  duplicateBoard = (id: number = this.cur.id, linked = false): void => {
     const src = this.boards.find((q) => q.id === id);
     if (!src || this.boards.length >= MAX_BOARDS || this.test || this.sweepRun || !this.cv) return;
     const ss = this.simOf(src),
       sv = src === this.cur ? this.saved : src.saved;
     const b = this.shell(
       this.boardSeq++,
-      `${src.name} ${this.t('board.copySuffix')}`.slice(0, NAME_MAX),
+      `${src.name} ${this.t(linked ? 'board.linkSuffix' : 'board.copySuffix')}`.slice(0, NAME_MAX),
       snap(src.wx + ss.W * ss.cellSize + BOARD_GAP_M),
       src.wy,
       this.simFromLayout(this.layoutOf(ss), ss)
     );
     b.saved = { plan: sv.plan, section: sv.section };
+    if (linked) b.link = src.link ?? src.id; // a copy of a copy follows the original
     this.attachBoard(b);
   };
+  /** A copy that follows `id`: it takes that board's walls, openings, fans and so on whenever they change, and keeps its own wind. */
+  linkBoard = (id: number = this.cur.id): void => this.duplicateBoard(id, true);
+  unlinkBoard = (id: number = this.cur.id): void => {
+    const b = this.boards.find((q) => q.id === id);
+    if (!b || !b.link) return;
+    const from = b.link;
+    b.link = undefined;
+    this.persist();
+    this.emit();
+    this.pushOp(
+      () => {
+        b.link = from;
+        this.persist();
+        this.emit();
+      },
+      () => {
+        b.link = undefined;
+        this.persist();
+        this.emit();
+      }
+    );
+  };
+  private showToast(text: string): void {
+    this.toast = text;
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => {
+      this.toast = '';
+      this.emit();
+    }, 4500);
+    this.emit();
+  }
+  /** Tells the user why a drawing action on a linked board did nothing. */
+  private lockedHint(): void {
+    const src = this.boards.find((q) => q.id === this.cur.link);
+    this.showToast(this.t('link.locked', { name: this.cur.name, src: src?.name ?? '' }));
+  }
+  /** Linked boards follow their source: same size, mode and cells. Runs between strokes, so a drag on the source is not interrupted. */
+  private syncLinks(): void {
+    if (this.drag || this.test || this.sweepRun) return;
+    for (const b of this.boards) {
+      if (!b.link) continue;
+      const src = this.boards.find((q) => q.id === b.link);
+      if (!src || src === b) {
+        b.link = undefined;
+        continue;
+      }
+      const ss = this.simOf(src),
+        bs = this.simOf(b);
+      const same =
+        ss.W === bs.W && ss.H === bs.H && ss.mode === bs.mode && ss.cellSize === bs.cellSize && sameBytes(ss.cell, bs.cell) && sameBytes(ss.fdir, bs.fdir);
+      if (same) continue;
+      this.withBoard(b, () => {
+        if (ss.W !== this.sim.W || ss.H !== this.sim.H) this.replaceSim(ss.W, ss.H, false);
+        const d = this.sim;
+        d.mode = ss.mode;
+        d.cellSize = ss.cellSize;
+        d.cell.set(ss.cell);
+        d.fdir.set(ss.fdir);
+        d.swing = ss.swing;
+        d.rebuild();
+        d.resetFlow();
+        this.updatePanels();
+      });
+    }
+  }
   private attachBoard(b: Board): void {
     this.boards.push(b);
     this.prepBoard(b);
@@ -1519,13 +1849,16 @@ export class Engine {
     this.refit();
     this.persist();
     this.updatePanels();
+    this.pushOp(
+      () => this.takeOut(b),
+      () => this.putBack(b, this.boards.length)
+    );
   }
-  deleteBoard = (id: number = this.cur.id): void => {
-    if (this.boards.length < 2 || this.test || this.sweepRun) return;
-    const i = this.boards.findIndex((q) => q.id === id);
-    if (i < 0) return;
-    const gone = this.boards[i];
-    if (gone === this.cur) {
+  /** Removes a board from the canvas without recording a step. If it was selected, a neighbour is selected. */
+  private takeOut(b: Board): number {
+    const i = this.boards.indexOf(b);
+    if (i < 0 || this.boards.length < 2) return -1;
+    if (b === this.cur) {
       const next = this.boards[i === this.boards.length - 1 ? i - 1 : i + 1];
       this.unbind();
       this.bind(next);
@@ -1537,6 +1870,41 @@ export class Engine {
     this.refit();
     this.persist();
     this.updatePanels();
+    return i;
+  }
+  /** Puts a removed board back at position `i` and selects it, without recording a step. */
+  private putBack(b: Board, i: number, select = true): void {
+    this.boards.splice(Math.min(i, this.boards.length), 0, b);
+    if (this.cv) this.prepBoard(b);
+    if (select) this.activate(b);
+    this.zoom = 1;
+    this.moved = false;
+    this.refit();
+    this.persist();
+    this.updatePanels();
+  }
+  deleteBoard = (id: number = this.cur.id): void => {
+    if (this.boards.length < 2 || this.test || this.sweepRun) return;
+    const gone = this.boards.find((q) => q.id === id);
+    if (!gone) return;
+    const wasActive = gone === this.cur,
+      followers = this.boards.filter((q) => q.link === gone.id); // linked copies keep what they have, as ordinary boards
+    const i = this.takeOut(gone);
+    if (i < 0) return;
+    for (const f of followers) f.link = undefined;
+    this.updatePanels();
+    this.pushOp(
+      () => {
+        this.putBack(gone, i, wasActive);
+        for (const f of followers) f.link = gone.id;
+        this.updatePanels();
+      },
+      () => {
+        this.takeOut(gone);
+        for (const f of followers) f.link = undefined;
+        this.updatePanels();
+      }
+    );
   };
   /** Throws everything away and starts again from one board with the default example. */
   resetProject = (): void => {
@@ -1558,14 +1926,23 @@ export class Engine {
   renameBoard = (id: number, name: string): void => {
     const b = this.boards.find((q) => q.id === id),
       v = name.trim().slice(0, NAME_MAX);
-    if (!b || !v) return;
-    b.name = v;
-    this.persist();
-    this.emit();
+    if (!b || !v || v === b.name) return;
+    const before = b.name,
+      set = (n: string) => {
+        b.name = n;
+        this.persist();
+        this.emit();
+      };
+    set(v);
+    this.pushOp(
+      () => set(before),
+      () => set(v)
+    );
   };
 
   /** Resize the board (the area the solver covers) to roughly wM x hM metres. The drawing stays centred; undo history is cleared. Plan only. */
   setBoard = (wM: number, hM: number): void => {
+    if (this.cur.link) return void this.lockedHint();
     const s = this.sim;
     if (s.mode !== 'plan' || !(wM > 0) || !(hM > 0)) return;
     const W = clamp(Math.round(wM / s.cellSize), GRID_MIN.W, GRID_MAX.W),
@@ -1576,6 +1953,20 @@ export class Engine {
     this.persist();
     this.updatePanels();
   };
+  /** Applies a finished edge drag: the drawing keeps its place on the page, the board grows or shrinks around it. History is cleared. */
+  private resizeBoard(rd: NonNullable<Engine['resizeDrag']>): void {
+    const s = this.sim;
+    if (rd.W === s.W && rd.H === s.H) {
+      this.emit();
+      return;
+    }
+    this.cur.wx = r2(rd.x);
+    this.cur.wy = r2(rd.y);
+    this.replaceSim(rd.W, rd.H, true, rd.gl, rd.gt);
+    this.prewarm();
+    this.persist();
+    this.updatePanels();
+  }
   /** Screen space (CSS px) the floating panels cover; the board is fitted and centred in what is left. */
   setInsets = (i: { top: number; right: number; bottom: number; left: number }): void => {
     this.insets = i;
@@ -1590,6 +1981,7 @@ export class Engine {
   };
 
   switchMode = (m: Mode): void => {
+    if (this.cur.link) return void this.lockedHint();
     const s = this.sim;
     if (m === s.mode) return;
     this.dropSweep();
@@ -1617,6 +2009,7 @@ export class Engine {
   };
 
   loadPreset = (id: string, quiet = false): void => {
+    if (this.cur.link && !quiet) return void this.lockedHint();
     const s = this.sim,
       p = PRESETS[s.mode].find((q) => q.id === id) ?? PRESETS[s.mode][0];
     if (!quiet) this.pushHist(this.types());
@@ -1645,27 +2038,20 @@ export class Engine {
   /** Writes immediately. Also called on pagehide so the last edit survives a closed tab. */
   persistNow(): void {
     clearTimeout(this.persistTimer);
-    try {
-      localStorage.setItem(KEY3, serializeProject(this.captureProject()));
-    } catch (err) {
-      console.warn('Crossdraft: could not save to localStorage', err);
+    const r = saveProjectCode(serializeProject(this.captureProject()));
+    const failed = r.ok ? '' : this.t(r.reason === 'full' ? 'msg.saveFull' : 'msg.saveBlocked');
+    if (failed !== this.saveWarn) {
+      this.saveWarn = failed;
+      this.emit();
     }
   }
   private restore(): boolean {
     try {
-      const raw3 = localStorage.getItem(KEY3);
+      const raw3 = readProjectCode();
       if (raw3) {
         const p = deserializeProject(raw3);
         // A project with nothing drawn on any board (for example one saved right after Clear) is not worth restoring: start from the default example.
-        const drawn = p.boards.some((b) =>
-          Object.values(b.saved).some((code) => {
-            const l = deserialize(code!);
-            let n = 0;
-            for (const t of l.types) if (t === T_WALL && ++n >= 10) return true;
-            return false;
-          })
-        );
-        if (drawn) {
+        if (projectIsDrawn(p)) {
           this.loadProject(p);
           return true;
         }
@@ -1674,24 +2060,19 @@ export class Engine {
       console.warn('Crossdraft: could not restore the saved project', err);
     }
     try {
-      const raw = localStorage.getItem(KEY);
-      if (!raw) return false;
-      const o = JSON.parse(raw);
-      if (!o || o.v !== 2) return false;
+      const old = readLegacyV2();
+      if (!old || !old.saved[old.mode] || !hasDrawing(old.saved[old.mode]!)) return false;
       for (const m of ['plan', 'section'] as Mode[]) {
-        if (!o.saved?.[m]) continue;
+        if (!old.saved[m]) continue;
         try {
-          this.saved[m] = deserialize(o.saved[m]);
+          this.saved[m] = deserialize(old.saved[m]!);
         } catch (err) {
           console.warn('Crossdraft: dropped saved ' + m + ' layout', err);
         }
       }
-      const s = this.saved[o.mode as Mode];
+      const s = this.saved[old.mode];
       if (!s) return false;
-      let walls = 0;
-      for (let i = 0; i < s.types.length; i++) if (s.types[i] === T_WALL) walls++;
-      if (walls < 10) return false;
-      this.saved[o.mode as Mode] = null;
+      this.saved[old.mode] = null;
       this.applyLayout(s);
       return true;
     } catch (err) {
@@ -1721,6 +2102,8 @@ export class Engine {
   /** Replaces everything on the canvas with a project: boards, their layouts and winds, and the notes. */
   private loadProject(p: Project): void {
     this.dropSweep();
+    this.ops = [];
+    this.opsRedo = [];
     this.drag = null;
     this.hover = null;
     this.editing = -1;
@@ -1858,8 +2241,12 @@ export class Engine {
         ? [{ key: 'insight.dirty', vars: {}, tone: 'info' }]
         : []
       : makeInsights(s, this.stats, !this.test && s.t >= 40);
+    this.flow = flowThrough(
+      s,
+      this.stats.map((r) => ({ id: r.id, area: r.area }))
+    );
     this.aligns = this.phongThuy && s.mode === 'plan' ? detectAlignments(s) : [];
-    this.fengShui = this.phongThuy ? evaluateFengShui(s, this.stats, this.aligns, !s.dirty && s.t >= 40 && !this.test && !this.sweepRun) : null;
+    this.fengShui = this.phongThuy ? evaluateFengShui(s, this.stats, this.aligns, !s.dirty && s.t >= 40 && !this.test && !this.sweepRun, this.lang) : null;
     this.drawLegend();
     this.emit();
   }
@@ -1897,10 +2284,10 @@ export class Engine {
       sp = Math.hypot(u, v);
     return `${pos} | ${where} | ${fmt(sp, 2)} m/s ${sp > 0.02 ? arrowOf(u, v) : ''} | ${this.t('probe.fresh')} ${pct(s.fresh[c])} | ${this.t('probe.age')} ${fmt(s.age[c], 0)} s | +${fmt(s.temp[c], 1)} K`;
   }
-  private tempScale(): number {
+  tempScale(): number {
     return this.sim.heaters.length ? Math.max(3, this.sim.heatDT * 0.6) : 3;
   }
-  private vmaxView(): number {
+  vmaxView(): number {
     const s = this.sim;
     return Math.max(1, s.speed * 1.1, s.fans.length ? s.fanSpeed : 0);
   }
@@ -1920,693 +2307,17 @@ export class Engine {
     };
   }
   private drawLegend(): void {
-    const lg = this.lg;
-    if (!lg) return;
-    const g = lg.getContext('2d'),
-      lut = this.LUT[this.view];
-    if (!g || !lut) return;
-    const im = g.createImageData(180, 10);
-    for (let x = 0; x < 180; x++) {
-      const i = Math.round((x / 179) * 255);
-      for (let y = 0; y < 10; y++) {
-        const o = (y * 180 + x) * 4;
-        im.data[o] = lut[i * 3];
-        im.data[o + 1] = lut[i * 3 + 1];
-        im.data[o + 2] = lut[i * 3 + 2];
-        im.data[o + 3] = 255;
-      }
-    }
-    g.putImageData(im, 0, 0);
-  }
-
-  /* ------------------------------------------------------------- rendering */
-  private paintField(): void {
-    const s = this.sim,
-      img = this.img,
-      lut = this.LUT[this.view];
-    if (!img || !lut || !this.fctx) return;
-    const W = s.W,
-      H = s.H,
-      S = s.S,
-      d = img.data,
-      solid = s.solid;
-    let arr: Float32Array, k: number;
-    switch (this.view) {
-      case 'speed':
-        arr = s.spd;
-        k = 1 / this.vmaxView();
-        break;
-      case 'age':
-        arr = s.age;
-        k = 1 / Math.max(s.t, 10);
-        break;
-      case 'temp':
-        arr = s.temp;
-        k = 1 / this.tempScale();
-        break;
-      default:
-        arr = s.fresh;
-        k = 1;
-    }
-    let o = 0;
-    for (let j = 1; j <= H; j++) {
-      let c = j * S + 1;
-      for (let i = 1; i <= W; i++, c++, o += 4) {
-        let q = solid[c] ? 0 : (arr[c] * k * 255) | 0;
-        q = q < 0 ? 0 : q > 255 ? 255 : q;
-        q *= 3;
-        d[o] = lut[q];
-        d[o + 1] = lut[q + 1];
-        d[o + 2] = lut[q + 2];
-        d[o + 3] = 255;
-      }
-    }
-    this.fctx.putImageData(img, 0, 0);
-  }
-  private runsPath(test: (c: number) => boolean): Path2D {
-    const s = this.sim,
-      W = s.W,
-      H = s.H,
-      S = s.S,
-      P = this.P,
-      p = new Path2D();
-    for (let j = 1; j <= H; j++) {
-      let i = 1;
-      while (i <= W) {
-        if (test(i + j * S)) {
-          let k = i;
-          while (k + 1 <= W && test(k + 1 + j * S)) k++;
-          p.rect((i - 1) * P, (j - 1) * P, (k - i + 1) * P, P);
-          i = k + 1;
-        } else i++;
-      }
-    }
-    return p;
+    drawLegend(this);
   }
   private render(): void {
-    const ctx = this.ctx,
-      cv = this.cv;
-    if (!ctx || !cv) return;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    const active = this.cur;
-    for (const b of this.boards) if (b !== active) this.withBoard(b, () => this.drawBoard(false));
-    this.drawBoard(true);
-    ctx.save();
-    ctx.translate(this.offX, this.offY);
-    this.drawWorld();
-    this.drawNewBoard();
-    ctx.restore();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.drawHUD();
-  }
-  /** One board: field, grid, walls, particles and, for the active one, the overlays. Draws in the bound board's own pixels. */
-  private drawBoard(active: boolean): void {
-    const ctx = this.ctx!,
-      cv = this.cv!,
-      fc = this.fc;
-    if (!fc) return;
-    const s = this.sim,
-      W = s.W,
-      H = s.H,
-      P = this.P,
-      DPR = this.DPR,
-      C = this.C,
-      cell = s.cell,
-      b = this.cur;
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.translate(this.ox(), this.oy());
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.22)';
-    ctx.shadowBlur = 18 * DPR;
-    ctx.shadowOffsetY = 4 * DPR;
-    ctx.fillStyle = C.panel;
-    ctx.fillRect(0, 0, W * P, H * P);
-    ctx.restore();
-    this.paintField();
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(fc, 0, 0, W * P, H * P);
-
-    // metre grid
-    let m = Math.max(1, Math.round(1 / s.cellSize));
-    while (m * P < 7 * DPR) m *= 2;
-    ctx.strokeStyle = C.grid;
-    ctx.lineWidth = Math.max(1, DPR * 0.7);
-    ctx.beginPath();
-    for (let x = m; x < W; x += m) {
-      ctx.moveTo(x * P, 0);
-      ctx.lineTo(x * P, H * P);
-    }
-    for (let y = m; y < H; y += m) {
-      ctx.moveTo(0, y * P);
-      ctx.lineTo(W * P, y * P);
-    }
-    ctx.stroke();
-
-    // dead zones
-    if (active && this.deadOn && s.t > 3 && !s.dirty) {
-      const thr = this.deadThr,
-        lab = s.labels,
-        spd = s.spd;
-      const dp = this.runsPath((c) => lab[c] > 0 && spd[c] < thr);
-      ctx.save();
-      ctx.globalAlpha = 0.16;
-      ctx.fillStyle = C.hatch;
-      ctx.fill(dp);
-      ctx.globalAlpha = 1;
-      if (this.hatchPat) {
-        ctx.fillStyle = this.hatchPat;
-        ctx.fill(dp);
-      }
-      ctx.restore();
-    }
-    ctx.fillStyle = C.wall;
-    ctx.fill(this.runsPath((c) => cell[c] === T_WALL));
-    ctx.save();
-    ctx.globalAlpha = 0.5;
-    ctx.fillStyle = C.wall;
-    ctx.fill(this.runsPath((c) => cell[c] === T_DOOR));
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = C.accent;
-    ctx.lineWidth = Math.max(1, this.DPR);
-    ctx.setLineDash([4 * this.DPR, 3 * this.DPR]);
-    ctx.stroke(this.runsPath((c) => cell[c] === T_DOOR));
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha = 0.6;
-    ctx.fillStyle = C.glass;
-    ctx.fill(this.runsPath((c) => cell[c] === T_OPEN));
-    ctx.restore();
-    ctx.fillStyle = C.heat;
-    ctx.fill(this.runsPath((c) => cell[c] === T_HEAT));
-    if (s.screens.length) {
-      const sp = this.runsPath((c) => cell[c] === T_SCREEN);
-      ctx.save();
-      ctx.globalAlpha = 0.28;
-      ctx.fillStyle = C.accent;
-      ctx.fill(sp);
-      ctx.globalAlpha = 1;
-      if (this.dotPat) {
-        ctx.fillStyle = this.dotPat;
-        ctx.fill(sp);
-      }
-      ctx.restore();
-    }
-    for (const c of s.fans) this.drawFan(c);
-
-    if (this.particlesOn) this.drawParticles();
-    if (active && this.arrowsOn) this.drawArrows();
-    this.drawWindMarks();
-    if (active && this.phongThuy) this.drawAlignments();
-    if (active && this.labelsOn) for (const r of this.stats) this.chip(`${r.name} ${fmt(r.area, 0)} m²`, (r.cx + 0.5) * P, (r.cy + 0.5) * P, 'center');
-    if (active) this.drawPreview();
-    ctx.save();
-    ctx.strokeStyle = active ? C.accent : C.ink;
-    ctx.globalAlpha = active ? 0.95 : 0.4;
-    ctx.lineWidth = Math.max(1.5, DPR * (active ? 2.5 : 1.5));
-    ctx.strokeRect(0, 0, W * P, H * P);
-    ctx.restore();
-    this.chip(`${b.name} · ${fmt(W * s.cellSize, 1)} × ${fmt(H * s.cellSize, 1)} m`, 0, -14 * DPR, 'left', active);
-    ctx.restore();
-  }
-  /** Outline of the board being dragged out with the Board tool. */
-  private drawNewBoard(): void {
-    const r = this.boardDrag;
-    if (!r) return;
-    const ctx = this.ctx!,
-      D = this.DPR,
-      pm = this.pm,
-      x = Math.min(r.x, r.x2) * pm,
-      y = Math.min(r.y, r.y2) * pm,
-      w = Math.abs(r.x2 - r.x) * pm,
-      h = Math.abs(r.y2 - r.y) * pm;
-    ctx.save();
-    ctx.fillStyle = this.C.accent;
-    ctx.globalAlpha = 0.08;
-    ctx.fillRect(x, y, w, h);
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = this.C.accent;
-    ctx.lineWidth = Math.max(1.5, D * 2);
-    ctx.setLineDash([6 * D, 4 * D]);
-    ctx.strokeRect(x, y, w, h);
-    ctx.restore();
-    const wm = Math.abs(r.x2 - r.x),
-      hm = Math.abs(r.y2 - r.y);
-    ctx.save();
-    ctx.font = `500 ${11 * D}px ${MONO}`;
-    ctx.textBaseline = 'middle';
-    const t = `${fmt(wm, 1)} × ${fmt(hm, 1)} m`;
-    ctx.fillStyle = this.C.accent;
-    ctx.fillText(t, x + 6 * D, y + 14 * D);
-    ctx.restore();
-  }
-  private drawFan(c: number, ghostDir?: number): void {
-    const ctx = this.ctx!,
-      s = this.sim,
-      S = s.S,
-      P = this.P,
-      DPR = this.DPR,
-      C = this.C;
-    const x = ((c % S) - 0.5) * P,
-      y = (((c / S) | 0) - 0.5) * P,
-      d = ghostDir ?? s.fanDirNow(c),
-      r = P * 1.15;
-    ctx.save();
-    if (ghostDir !== undefined) ctx.globalAlpha = 0.55;
-    ctx.translate(x, y);
-    ctx.rotate((d * Math.PI) / 4);
-    ctx.fillStyle = C.panel;
-    ctx.strokeStyle = C.accent;
-    ctx.lineWidth = Math.max(1.5, DPR * 1.6);
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, 7);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.5, 0);
-    ctx.lineTo(r * 0.45, 0);
-    ctx.moveTo(r * 0.1, -r * 0.4);
-    ctx.lineTo(r * 0.5, 0);
-    ctx.lineTo(r * 0.1, r * 0.4);
-    ctx.stroke();
-    if (s.swing > 0) {
-      ctx.globalAlpha = 0.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.45, -0.6, 0.6);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-  private drawParticles(): void {
-    // Each streak is the local velocity drawn as a 0.4 s tail, so length reads as speed and slow air shows as dots.
-    const ctx = this.ctx!,
-      P = this.P,
-      k = 0.4 / this.sim.cellSize;
-    ctx.save();
-    ctx.lineWidth = Math.max(1, this.DPR * 1.2);
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = this.C.ink;
-    ctx.globalAlpha = 0.55;
-    ctx.beginPath();
-    for (let i = 0; i < this.PN; i++) {
-      let tx = this.pvx[i] * k,
-        ty = this.pvy[i] * k;
-      const L = Math.sqrt(tx * tx + ty * ty);
-      if (L > 6) {
-        tx *= 6 / L;
-        ty *= 6 / L;
-      }
-      const x = (this.ppx[i] - 0.5) * P,
-        y = (this.ppy[i] - 0.5) * P;
-      ctx.moveTo(x - tx * P, y - ty * P);
-      ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  private drawArrows(): void {
-    const ctx = this.ctx!,
-      s = this.sim,
-      P = this.P,
-      W = s.W,
-      H = s.H,
-      S = s.S,
-      step = Math.max(3, Math.round(W / 32)),
-      vref = this.vmaxView();
-    ctx.save();
-    ctx.strokeStyle = this.C.ink;
-    ctx.globalAlpha = 0.7;
-    ctx.lineWidth = Math.max(1, this.DPR);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    for (let j = 1 + (step >> 1); j <= H; j += step)
-      for (let i = 1 + (step >> 1); i <= W; i += step) {
-        const c = i + j * S;
-        if (s.solid[c]) continue;
-        const u = s.u[c],
-          v = s.v[c],
-          sp = Math.hypot(u, v);
-        if (sp < 0.04) continue;
-        const L = step * 0.9 * clamp(Math.sqrt(sp / vref), 0.2, 1),
-          dx = (u / sp) * L,
-          dy = (v / sp) * L;
-        const x0 = (i - 0.5) * P - (dx * P) / 2,
-          y0 = (j - 0.5) * P - (dy * P) / 2,
-          x1 = x0 + dx * P,
-          y1 = y0 + dy * P,
-          a = Math.atan2(dy, dx),
-          hl = Math.min(P * 1.4, L * P * 0.5);
-        ctx.moveTo(x0, y0);
-        ctx.lineTo(x1, y1);
-        ctx.moveTo(x1 - hl * Math.cos(a - 0.5), y1 - hl * Math.sin(a - 0.5));
-        ctx.lineTo(x1, y1);
-        ctx.lineTo(x1 - hl * Math.cos(a + 0.5), y1 - hl * Math.sin(a + 0.5));
-      }
-    ctx.stroke();
-    ctx.restore();
-  }
-  /** Notes and arrows, in world pixels (the caller has translated to the world origin). */
-  private drawWorld(): void {
-    const ctx = this.ctx!,
-      f = this.pm,
-      D = this.DPR,
-      C = this.C;
-    const items = this.arrowDrag ? [...this.world, { k: 'arrow' as const, ...this.arrowDrag }] : this.world;
-    if (!items.length) return;
-    ctx.save();
-    ctx.fillStyle = C.ink;
-    ctx.strokeStyle = C.ink;
-    ctx.lineWidth = Math.max(1.5, D * 2);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    const px = TEXT_SIZE_M * f;
-    ctx.font = `600 ${Math.max(px, 1)}px ${MONO}`;
-    ctx.textBaseline = 'middle';
-    items.forEach((it, i) => {
-      if (it.k === 'text') {
-        if (i === this.editing) return; // the input box shows it
-        if (px >= 5 * D) ctx.fillText(it.text, it.x * f, it.y * f);
-      } else {
-        const x1 = it.x * f,
-          y1 = it.y * f,
-          x2 = it.x2 * f,
-          y2 = it.y2 * f,
-          L = Math.hypot(x2 - x1, y2 - y1);
-        if (L < 1) return;
-        const ux = (x2 - x1) / L,
-          uy = (y2 - y1) / L,
-          h = Math.min(L * 0.5, Math.max(8 * D, 0.6 * f));
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.moveTo(x2 - ux * h - uy * h * 0.5, y2 - uy * h + ux * h * 0.5);
-        ctx.lineTo(x2, y2);
-        ctx.lineTo(x2 - ux * h + uy * h * 0.5, y2 - uy * h - ux * h * 0.5);
-        ctx.stroke();
-      }
-    });
-    ctx.restore();
-  }
-  /** Wind arrows float in the world just outside the inflow sides of the board. */
-  private drawWindMarks(): void {
-    const ctx = this.ctx!,
-      s = this.sim,
-      P = this.P,
-      D = this.DPR,
-      k = s.sideKind,
-      W = s.W,
-      H = s.H,
-      L = Math.hypot(s.ex, s.ey);
-    if (L < 0.05) return;
-    const dx = s.ex / L,
-      dy = s.ey / L,
-      a = Math.max(P * 1.5, 7 * D),
-      tail = a * 3.2,
-      gap = 8 * D;
-    ctx.save();
-    ctx.strokeStyle = this.C.accent;
-    ctx.lineWidth = Math.max(2, D * 2);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    const mark = (x: number, y: number) => {
-      ctx.moveTo(x - dx * tail, y - dy * tail);
-      ctx.lineTo(x, y);
-      ctx.moveTo(x - dx * a - dy * a * 0.6, y - dy * a + dx * a * 0.6);
-      ctx.lineTo(x, y);
-      ctx.lineTo(x - dx * a + dy * a * 0.6, y - dy * a - dx * a * 0.6);
-    };
-    const n = 5;
-    for (let side = 0; side < 4; side++)
-      if (k[side] === 1)
-        for (let q = 0; q < n; q++) {
-          const f = (q + 0.5) / n;
-          if (side === 0) mark(-gap, f * H * P);
-          else if (side === 1) mark(W * P + gap, f * H * P);
-          else if (side === 2) mark(f * W * P, -gap);
-          else mark(f * W * P, H * P + gap);
-        }
-    ctx.stroke();
-    ctx.restore();
-  }
-  private drawAlignments(): void {
-    const ctx = this.ctx!,
-      P = this.P;
-    ctx.save();
-    ctx.strokeStyle = this.C.heat;
-    ctx.lineWidth = Math.max(2, this.DPR * 2);
-    ctx.setLineDash([P * 1.5, P]);
-    ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.9;
-    for (const a of this.aligns) {
-      ctx.beginPath();
-      ctx.moveTo((a.a.x + 0.5) * P, (a.a.y + 0.5) * P);
-      ctx.lineTo((a.b.x + 0.5) * P, (a.b.y + 0.5) * P);
-      ctx.stroke();
-    }
-    ctx.restore();
-    for (const a of this.aligns) this.chip(`${fmt(a.speed, 1)} m/s`, ((a.a.x + a.b.x) / 2 + 0.5) * P, ((a.a.y + a.b.y) / 2 + 0.5) * P, 'center');
-  }
-  private chip(text: string, x: number, y: number, align: 'center' | 'left', strong = false): void {
-    const ctx = this.ctx!,
-      cv = this.cv!,
-      DPR = this.DPR;
-    x += this.ox();
-    y += this.oy(); // callers pass pixels relative to the bound board
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.font = `500 ${11 * DPR}px ${MONO}`;
-    const w = ctx.measureText(text).width + 8 * DPR,
-      h = 16 * DPR;
-    const X = clamp(align === 'center' ? x - w / 2 : x, 2, cv.width - w - 2),
-      Y = clamp(y - h / 2, 2, cv.height - h - 2);
-    ctx.globalAlpha = 0.86;
-    ctx.fillStyle = strong ? this.C.accent : this.C.panel;
-    ctx.fillRect(X, Y, w, h);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = strong ? '#fff' : this.C.ink;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, X + 4 * DPR, Y + h / 2 + 0.5);
-    ctx.restore();
-  }
-  private drawPreview(): void {
-    const ctx = this.ctx!,
-      s = this.sim,
-      P = this.P,
-      DPR = this.DPR,
-      d = this.drag,
-      h = s.cellSize;
-    if (d && d.shape) {
-      const cs = d.shape.cells;
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.fillStyle = this.C.accent;
-      ctx.beginPath();
-      for (let i = 0; i < cs.length; i += 2) ctx.rect(cs[i] * P, cs[i + 1] * P, P, P);
-      ctx.fill();
-      ctx.restore();
-      const a = d.start,
-        b = d.shape.end;
-      let txt: string;
-      if (d.tool === 'line') txt = fmt(Math.hypot(b.x - a.x, b.y - a.y) * h, 1) + ' m';
-      else {
-        const w = (Math.abs(b.x - a.x) + 1) * h,
-          hh = (Math.abs(b.y - a.y) + 1) * h;
-        txt = `${fmt(w, 1)} x ${fmt(hh, 1)} m  ${fmt(w * hh, 0)} m²`;
-      }
-      this.chip(txt, (b.x + 1.5) * P, (b.y - 1.2) * P, 'left');
-    } else if (d && d.tool === 'open' && d.count)
-      this.chip(`opening ${fmt((d.count * h) / Math.max(1, this.brush.open), 1)} m`, (d.cur.x + 1.5) * P, (d.cur.y - 1.2) * P, 'left');
-    const hv = this.hover;
-    if (hv && !d) {
-      const t = this.tool,
-        sz = t === 'wall' || t === 'screen' ? this.brush.wall : t === 'open' ? this.brush.open : t === 'erase' ? this.brush.erase : 1,
-        off = sz >> 1;
-      ctx.save();
-      ctx.strokeStyle = this.C.accent;
-      ctx.lineWidth = Math.max(1.5, DPR * 1.5);
-      ctx.strokeRect((hv.x - off) * P, (hv.y - off) * P, sz * P, sz * P);
-      ctx.restore();
-      if (t === 'fan' && inb(s, hv.x, hv.y)) this.drawFan(s.idx(hv.x, hv.y), this.fanDir);
-      else if (t === 'heat' && inb(s, hv.x, hv.y)) {
-        ctx.save();
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = this.C.heat;
-        ctx.fillRect(hv.x * P, hv.y * P, P, P);
-        ctx.restore();
-      }
-    }
-  }
-  private drawHUD(): void {
-    const ctx = this.ctx!,
-      cv = this.cv!,
-      s = this.sim,
-      DPR = this.DPR,
-      C = this.C;
-    const h = s.cellSize,
-      bar = (2 / h) * this.P,
-      x = 12 * DPR,
-      y = cv.height - 66 * DPR;
-    ctx.save();
-    ctx.globalAlpha = 0.86;
-    ctx.fillStyle = C.panel;
-    ctx.fillRect(x - 6 * DPR, y - 12 * DPR, bar + 52 * DPR, 22 * DPR);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = C.ink;
-    ctx.fillStyle = C.ink;
-    ctx.lineWidth = Math.max(1.5, DPR * 1.5);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + bar, y);
-    ctx.moveTo(x, y - 4 * DPR);
-    ctx.lineTo(x, y + 4 * DPR);
-    ctx.moveTo(x + bar, y - 4 * DPR);
-    ctx.lineTo(x + bar, y + 4 * DPR);
-    ctx.stroke();
-    ctx.font = `500 ${11 * DPR}px ${MONO}`;
-    ctx.textBaseline = 'middle';
-    ctx.fillText('2 m', x + bar + 8 * DPR, y);
-    const tag = s.mode === 'plan' ? 'N ↑' : 'g ↓',
-      tw = ctx.measureText(tag).width;
-    ctx.globalAlpha = 0.86;
-    ctx.fillStyle = C.panel;
-    ctx.fillRect(6 * DPR, cv.height - 104 * DPR, tw + 12 * DPR, 20 * DPR);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = C.ink;
-    ctx.fillText(tag, 12 * DPR, cv.height - 94 * DPR);
-    ctx.restore();
+    render(this);
   }
 
-  /* ----------------------------------------------------------- GIF export */
-  /** Records GIF_SEC seconds of the canvas as it runs, then downloads it as an animated GIF. */
-  /** Saves the canvas as it is on screen, with the "not CFD" caption burnt into the corner like the GIF does. */
-  exportPng = (): void => {
-    const src = this.cv;
-    if (!src) return;
-    const out = document.createElement('canvas');
-    out.width = src.width;
-    out.height = src.height;
-    const g = out.getContext('2d');
-    if (!g) {
-      this.gifMsg = this.t('png.failed');
-      this.emit();
-      return;
-    }
-    g.drawImage(src, 0, 0);
-    const size = Math.max(11, Math.round(src.width / 80));
-    g.font = `500 ${size}px ui-monospace, Menlo, monospace`;
-    g.textBaseline = 'bottom';
-    const text = this.t('gif.caption'),
-      w = g.measureText(text).width + size * 1.2;
-    g.fillStyle = 'rgba(0,0,0,0.55)';
-    g.fillRect(0, out.height - size * 2, w, size * 2);
-    g.fillStyle = '#fff';
-    g.fillText(text, size * 0.6, out.height - size * 0.5);
-    out.toBlob((blob) => {
-      if (!blob) {
-        this.gifMsg = this.t('png.failed');
-        this.emit();
-        return;
-      }
-      const url = URL.createObjectURL(blob),
-        a = document.createElement('a');
-      a.href = url;
-      a.download = 'crossdraft.png';
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, 'image/png');
-  };
-
-  recordGif = (): void => {
-    if (this.rec || this.sweepRun || !this.cv) return;
-    const scale = Math.min(1, GIF_MAX_W / this.cv.width),
-      w = Math.max(1, Math.round(this.cv.width * scale)),
-      h = Math.max(1, Math.round(this.cv.height * scale));
-    const cv = document.createElement('canvas');
-    cv.width = w;
-    cv.height = h;
-    const ctx = cv.getContext('2d', { willReadFrequently: true });
-    if (!ctx) {
-      this.gifMsg = this.t('gif.failed');
-      this.emit();
-      return;
-    }
-    this.rec = { cv, ctx, w, h, q: null, frames: [], delays: [], start: -1, last: -1, wasRunning: this.running, encoding: false };
-    if (!this.test) this.running = true; // a paused canvas would make a still GIF
-    this.gifMsg = '';
-    this.emit();
-  };
-
+  /* ----------------------------------------------------------- exports */
+  exportPng = (): void => exportPng(this);
+  recordGif = (): void => recordGif(this);
   private captureGif(ts: number): void {
-    const r = this.rec!;
-    if (r.start < 0) {
-      r.start = r.last = ts;
-    } else if (ts - r.last < GIF_FRAME_MS) return;
-    else {
-      r.delays.push((ts - r.last) / 10);
-      r.last = ts;
-    }
-    const { ctx, w, h } = r,
-      DPR = w / (this.cv!.width / this.DPR);
-    ctx.fillStyle = this.C.panel;
-    ctx.fillRect(0, 0, w, h); // the canvas is transparent outside the drawing
-    ctx.drawImage(this.cv!, 0, 0, w, h);
-    // Keep the caveat on the image itself: a GIF travels without the page around it.
-    const text = `Crossdraft · ${this.t('view.' + this.view)} · ${this.t('gif.caption')}`;
-    ctx.save();
-    ctx.font = `500 ${Math.max(9, 11 * DPR)}px ${MONO}`;
-    ctx.textBaseline = 'middle';
-    const tw = ctx.measureText(text).width,
-      bh = Math.max(14, 18 * DPR),
-      X = w - tw - 10 * DPR,
-      Y = h - bh - 4 * DPR;
-    ctx.globalAlpha = 0.86;
-    ctx.fillStyle = this.C.panel;
-    ctx.fillRect(X - 5 * DPR, Y, tw + 10 * DPR, bh);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = this.C.ink;
-    ctx.fillText(text, X, Y + bh / 2 + 0.5);
-    ctx.restore();
-    const px = ctx.getImageData(0, 0, w, h).data;
-    if (!r.q) r.q = new Quantizer(medianCut(px)); // the first frame sets the palette for the whole clip
-    r.frames.push(r.q.map(px));
-    if (ts - r.start >= GIF_SEC * 1000) {
-      r.delays.push(GIF_FRAME_MS / 10);
-      r.encoding = true;
-      this.running = r.wasRunning || !!this.test;
-      this.emit();
-      setTimeout(() => this.finishGif(r), 30); // let the "encoding" label paint first
-    }
-  }
-
-  private finishGif(r: GifRec): void {
-    if (this.rec !== r) return;
-    try {
-      const enc = new GifEncoder(r.w, r.h, r.q!.palette);
-      r.frames.forEach((f, i) => enc.addFrame(f, r.delays[i]));
-      const url = URL.createObjectURL(new Blob([enc.finish().buffer as ArrayBuffer], { type: 'image/gif' }));
-      const d = new Date(),
-        pad = (n: number) => String(n).padStart(2, '0');
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `crossdraft-${this.view}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.gif`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      this.gifMsg = this.t('gif.saved');
-    } catch (err) {
-      console.error('Crossdraft: GIF export failed', err);
-      this.gifMsg = this.t('gif.failed');
-    }
-    this.rec = null;
-    clearTimeout(this.gifTimer);
-    this.gifTimer = setTimeout(() => {
-      this.gifMsg = '';
-      this.emit();
-    }, 3000);
-    this.emit();
+    captureGif(this, ts);
   }
 
   /* ---------------------------------------------------------------- loop */
@@ -2643,6 +2354,7 @@ export class Engine {
       else if (this.running) dt = this.advance();
       if (dt > 0) this.stepParticles(dt);
       if (this.running && !this.test && !this.sweepRun) this.stepIdle();
+      this.syncLinks();
       this.render();
       if (this.rec && !this.rec.encoding) this.captureGif(ts);
       if (ts - this.lastPanel > 250) {

@@ -150,7 +150,36 @@ export function Stage({ engine, ui }: Props) {
   return (
     <>
       <div className="canvaswrap" ref={wrap}>
-        <canvas ref={cv} id="cv" role="img" aria-label={t('canvas.label')} />
+        <canvas
+          ref={cv}
+          id="cv"
+          tabIndex={0}
+          role="application"
+          aria-label={t('canvas.label')}
+          aria-describedby="cv-desc cv-keys"
+          onFocus={engine.kbFocus}
+          onBlur={engine.kbBlur}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? 5 : 1,
+              move: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+            if (move[e.key]) engine.kbMove(...move[e.key]);
+            else if (e.key === 'Enter') engine.kbPress();
+            else if (e.key === 'Escape') engine.kbCancel();
+            else return;
+            e.preventDefault();
+          }}
+        />
+        <p id="cv-keys" className="sr-only">
+          {t('canvas.keys')}
+        </p>
+        <p id="cv-desc" className="sr-only">
+          {ui.stats.length === 0
+            ? t('canvas.desc.none')
+            : [
+                t('canvas.desc.wind', { speed: fmt(ui.wind.speed, 1), deg: Math.round(ui.wind.deg) }),
+                ...ui.stats.map((r) => t('canvas.desc.room', { name: r.name, area: fmt(r.area, 0), speed: fmt(r.speed, 2), dead: Math.round(r.dead * 100) }))
+              ].join(' ')}
+        </p>
         {ui.noteEdit && <NoteInput key={ui.noteEdit.id} engine={engine} edit={ui.noteEdit} />}
       </div>
       <div className="hud hud-tc">
@@ -236,7 +265,11 @@ export function Stage({ engine, ui }: Props) {
           </div>
           <span className="cfdnote">{t('legend.cfd')}</span>
         </div>
-        {ui.status && <div className="status">{ui.status}</div>}
+        {ui.status && (
+          <div className="status" aria-live="polite">
+            {ui.status}
+          </div>
+        )}
       </div>
     </>
   );

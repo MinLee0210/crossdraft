@@ -6,10 +6,16 @@ import { translate, type Lang } from '@/lib/i18n';
 export type T = (key: string, vars?: Record<string, string | number>) => string;
 
 const Ctx = createContext<T>((key) => key);
+const LangCtx = createContext<Lang>('en');
 
 export function I18nProvider({ lang, children }: { lang: Lang; children: ReactNode }) {
   const t = useMemo<T>(() => (key, vars) => translate(lang, key, vars), [lang]);
-  return <Ctx.Provider value={t}>{children}</Ctx.Provider>;
+  return (
+    <LangCtx.Provider value={lang}>
+      <Ctx.Provider value={t}>{children}</Ctx.Provider>
+    </LangCtx.Provider>
+  );
 }
 
 export const useT = (): T => useContext(Ctx);
+export const useLang = (): Lang => useContext(LangCtx);

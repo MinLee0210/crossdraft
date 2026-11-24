@@ -81,7 +81,7 @@ const fix = (x: number, d = 1) => x.toFixed(d);
  * Evaluates the rules. Plan view only (Section has no top-down floor plan), and only when there is at least one room.
  * `settled` says the air has run long enough, unedited, to trust the stale-air numbers.
  */
-export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignment[], settled: boolean): FsResult | null {
+export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignment[], settled: boolean, lang: 'en' | 'vi' = 'en'): FsResult | null {
   if (sim.mode !== 'plan' || !stats.length) return null;
   const rules: FsRule[] = [];
   const ops = findOpenings(sim).filter((o) => o.outside && o.rooms.length > 0);
@@ -94,7 +94,7 @@ export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignm
       a = open[0] ?? alignments[0];
     const vars = { room: name(a.room), len: fix(a.length), speed: fix(a.speed) };
     const more = settled
-      ? { key: 'fs.align.linger', vars: { d: ENTRY_M, dir: a.entry.facing === null ? '?' : compass(a.entry.facing), age: fix(a.linger, 0) } }
+      ? { key: 'fs.align.linger', vars: { d: ENTRY_M, dir: a.entry.facing === null ? '?' : compass(a.entry.facing, lang), age: fix(a.linger, 0) } }
       : undefined;
     if (open.length) rules.push({ id: 'align', status: 'attention', key: 'fs.align.found', vars: { ...vars, n: open.length }, more });
     else rules.push({ id: 'align', status: 'ok', key: 'fs.align.screened', vars, more });
@@ -115,7 +115,7 @@ export function evaluateFengShui(sim: Sim, stats: RoomStat[], alignments: Alignm
   if (sim.speed < 0.3) rules.push({ id: 'wind', status: 'info', key: 'fs.wind.calm', vars: {} });
   else {
     const side = windSide(sim.deg),
-      dir = `${compass(sim.deg)} ${Math.round(sim.deg)}°`;
+      dir = `${compass(sim.deg, lang)} ${Math.round(sim.deg)}°`;
     const hit = ops.filter((o) => o.facing !== null && bearingGap(o.facing, sim.deg) <= WINDWARD);
     const w = fix(hit.reduce((s, o) => s + o.width, 0) * sim.cellSize);
     const vars = { dir, w };

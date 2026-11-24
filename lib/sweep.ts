@@ -14,11 +14,24 @@ export interface SweepRow {
   score: Score | null;
 }
 
+/** What the engine needs from a running sweep, whether it runs in this thread or in workers. */
+export interface SweepJob {
+  readonly dirs: number[];
+  readonly speed: number;
+  readonly seconds: number;
+  readonly results: SweepRow[];
+  readonly progress: number;
+  readonly current: number;
+  /** Does some work (in-thread) or just checks (workers). Returns true when every direction is finished. */
+  advance(budgetMs: number): boolean;
+  dispose(): void;
+}
+
 /**
  * Runs the same layout against wind from 8 or 16 directions, one after the other, on its own copy of the solver so the
  * drawing on screen is never touched. Call `advance` repeatedly with a small time budget to keep the page responsive.
  */
-export class Sweep {
+export class Sweep implements SweepJob {
   readonly dirs: number[];
   readonly results: SweepRow[] = [];
   private sim: Sim;
@@ -30,10 +43,10 @@ export class Sweep {
     phys: SweepPhysics,
     readonly speed: number,
     readonly seconds: number,
-    count: 8 | 16,
+    count: 8 | 16 | number[],
     private deadThr = 0.1
   ) {
-    this.dirs = Array.from({ length: count }, (_, k) => (k * 360) / count);
+    this.dirs = Array.isArray(count) ? count : Array.from({ length: count }, (_, k) => (k * 360) / count);
     const s = (this.sim = new Sim(layout.W, layout.H));
     s.mode = layout.mode;
     s.cellSize = layout.cell;
@@ -47,6 +60,8 @@ export class Sweep {
         s.fdir[c] = d.fdir;
       }
   }
+
+  dispose(): void {}
 
   get done(): boolean {
     return this.i >= this.dirs.length;
